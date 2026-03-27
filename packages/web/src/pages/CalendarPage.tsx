@@ -1542,6 +1542,7 @@ export function CalendarPage() {
                 end_at: info.event.endStr,
               } as any);
             }}
+            allDayText=""
             slotMinTime="06:00:00"
             slotMaxTime="24:00:00"
             slotDuration="00:15:00"
