@@ -352,7 +352,8 @@ export async function initCommand() {
   console.log("  2️⃣  기본 정보");
   const name = promptWithDefault("     이름", "User");
   const language = promptWithDefault("     언어 (ko/en)", "ko");
-  const timezone = promptWithDefault("     타임존", "Asia/Seoul");
+  const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timezone = promptWithDefault("     타임존", detectedTimezone);
   const dataDir = promptWithDefault("     데이터 디렉토리", "~/.lifekit/");
   console.log("");
 
