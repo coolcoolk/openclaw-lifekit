@@ -39,8 +39,8 @@ export const onboardingFlows: Record<string, OnboardingFlow> = {
       },
     ],
   },
-  "health-mind": {
-    areaId: "health-mind",
+  "health-mental": {
+    areaId: "health-mental",
     areaName: "마음 건강",
     steps: [
       {
@@ -124,6 +124,269 @@ export const onboardingFlows: Record<string, OnboardingFlow> = {
         key: "goal",
         question: "재무 목표는 무엇인가요?",
         options: ["지출 줄이기", "저축 늘리기", "투자 시작", "빚 갚기", "재무 자유"],
+      },
+    ],
+  },
+  "work-business": {
+    areaId: "work-business",
+    areaName: "사업",
+    steps: [
+      {
+        key: "stage",
+        question: "현재 사업 단계는 어디인가요?",
+        options: ["아이디어 단계", "준비 중", "초기 운영 (1년 미만)", "운영 중 (1년 이상)", "확장/스케일업"],
+      },
+      {
+        key: "industry",
+        question: "업종은 무엇인가요? (자유롭게 입력해주세요)",
+      },
+      {
+        key: "revenueGoal",
+        question: "월 매출 목표는 어느 정도인가요?",
+        options: ["아직 매출 없음", "100만원 미만", "100~500만원", "500~1000만원", "1000만원 이상"],
+      },
+      {
+        key: "challenge",
+        question: "현재 가장 큰 애로사항은 무엇인가요?",
+        options: ["자금/투자", "고객 확보", "팀 구성", "제품/서비스 개선", "워라밸"],
+      },
+    ],
+  },
+  "work-side": {
+    areaId: "work-side",
+    areaName: "부업",
+    steps: [
+      {
+        key: "type",
+        question: "어떤 유형의 부업을 하고 있거나 관심 있나요?",
+        options: ["프리랜서", "콘텐츠 크리에이터", "투자 (주식/코인 등)", "온라인 판매", "기타"],
+      },
+      {
+        key: "incomeGoal",
+        question: "부업으로 월 수입 목표는 얼마인가요?",
+        options: ["아직 수입 없음", "30만원 미만", "30~100만원", "100~300만원", "300만원 이상"],
+      },
+      {
+        key: "timeInvest",
+        question: "부업에 투자 가능한 시간은 주당 어느 정도인가요?",
+        options: ["주 5시간 미만", "주 5~10시간", "주 10~20시간", "주 20시간 이상"],
+      },
+    ],
+  },
+  "finance-invest": {
+    areaId: "finance-invest",
+    areaName: "투자",
+    steps: [
+      {
+        key: "assetType",
+        question: "주로 투자하는(관심 있는) 자산은 무엇인가요?",
+        options: ["주식", "부동산", "코인/가상자산", "펀드/ETF", "아직 투자 안 함"],
+      },
+      {
+        key: "experience",
+        question: "투자 경력은 어느 정도인가요?",
+        options: ["입문 (1년 미만)", "초급 (1~3년)", "중급 (3~5년)", "상급 (5년 이상)"],
+      },
+      {
+        key: "returnGoal",
+        question: "목표 연 수익률은 어느 정도인가요?",
+        options: ["안정적 (5% 이하)", "보통 (5~15%)", "공격적 (15~30%)", "매우 공격적 (30% 이상)", "잘 모르겠음"],
+      },
+    ],
+  },
+  "rel-lover": {
+    areaId: "rel-lover",
+    areaName: "연인",
+    steps: [
+      {
+        key: "status",
+        question: "현재 연애 상태는 어떤가요?",
+        options: ["솔로", "썸/시작 단계", "연애 중", "동거 중", "결혼/약혼"],
+      },
+      {
+        key: "goal",
+        question: "연인 관계에서의 목표는 무엇인가요?",
+        options: ["새로운 만남", "관계 유지/발전", "갈등 해결", "결혼 준비", "특별히 없음"],
+      },
+    ],
+  },
+  "rel-friends": {
+    areaId: "rel-friends",
+    areaName: "친구",
+    steps: [
+      {
+        key: "closeFriends",
+        question: "가까운 친구가 몇 명 정도 있나요?",
+        options: ["거의 없음", "1~2명", "3~5명", "5명 이상"],
+      },
+      {
+        key: "frequency",
+        question: "친구들과 얼마나 자주 만나나요?",
+        options: ["거의 안 만남", "월 1~2회", "주 1회", "주 2회 이상"],
+      },
+      {
+        key: "goal",
+        question: "친구 관계에서의 목표는 무엇인가요?",
+        options: ["새로운 친구 만들기", "기존 관계 유지", "더 깊은 우정", "네트워킹 확장", "특별히 없음"],
+      },
+    ],
+  },
+  "rel-family": {
+    areaId: "rel-family",
+    areaName: "가족",
+    steps: [
+      {
+        key: "contactFreq",
+        question: "가족과 얼마나 자주 연락하나요?",
+        options: ["거의 안 함", "월 1~2회", "주 1회", "주 2회 이상", "같이 살고 있음"],
+      },
+      {
+        key: "goal",
+        question: "가족 관계에서의 목표는 무엇인가요?",
+        options: ["연락 더 자주 하기", "관계 개선", "가족 행사 챙기기", "효도/돌봄", "특별히 없음"],
+      },
+    ],
+  },
+  "rel-pet": {
+    areaId: "rel-pet",
+    areaName: "반려동물",
+    steps: [
+      {
+        key: "hasPet",
+        question: "현재 반려동물이 있나요?",
+        options: ["있음", "없지만 계획 중", "없음"],
+      },
+      {
+        key: "petType",
+        question: "반려동물 종류는 무엇인가요? (있거나 계획 중이라면)",
+        options: ["강아지", "고양이", "물고기/파충류", "새/소동물", "기타"],
+      },
+    ],
+  },
+  "growth-self": {
+    areaId: "growth-self",
+    areaName: "자기계발",
+    steps: [
+      {
+        key: "current",
+        question: "현재 하고 있는 자기계발이 있나요?",
+        options: ["독서", "온라인 강의", "자격증 준비", "외국어 공부", "안 하고 있음"],
+      },
+      {
+        key: "goal",
+        question: "자기계발 목표는 무엇인가요?",
+        options: ["새로운 스킬 습득", "전문성 강화", "자격증 취득", "습관 만들기", "기타"],
+      },
+    ],
+  },
+  "growth-culture": {
+    areaId: "growth-culture",
+    areaName: "문화생활",
+    steps: [
+      {
+        key: "type",
+        question: "주로 즐기는 문화생활은 무엇인가요?",
+        options: ["영화/드라마", "공연/뮤지컬", "전시/미술관", "음악/콘서트", "기타/안 즐김"],
+      },
+      {
+        key: "frequency",
+        question: "문화생활 빈도는 어느 정도인가요?",
+        options: ["거의 안 함", "월 1~2회", "주 1회", "주 2회 이상"],
+      },
+    ],
+  },
+  "growth-hobby": {
+    areaId: "growth-hobby",
+    areaName: "취미활동",
+    steps: [
+      {
+        key: "hobby",
+        question: "현재 즐기는 취미가 있나요? (자유롭게 입력해주세요)",
+      },
+      {
+        key: "timeInvest",
+        question: "취미에 투자하는 시간은 주당 어느 정도인가요?",
+        options: ["거의 없음", "주 2시간 미만", "주 2~5시간", "주 5~10시간", "주 10시간 이상"],
+      },
+    ],
+  },
+  "growth-travel": {
+    areaId: "growth-travel",
+    areaName: "여행",
+    steps: [
+      {
+        key: "frequency",
+        question: "여행을 얼마나 자주 가나요?",
+        options: ["거의 안 감", "연 1~2회", "분기 1회", "월 1회 이상"],
+      },
+      {
+        key: "style",
+        question: "선호하는 여행 스타일은 무엇인가요?",
+        options: ["휴양/힐링", "탐험/모험", "문화/역사", "미식 여행", "워케이션"],
+      },
+    ],
+  },
+  "appear-fashion": {
+    areaId: "appear-fashion",
+    areaName: "패션",
+    steps: [
+      {
+        key: "interest",
+        question: "패션에 대한 관심도는 어느 정도인가요?",
+        options: ["1 (관심 없음)", "2 (최소한만)", "3 (보통)", "4 (꽤 신경 씀)", "5 (매우 중요)"],
+      },
+      {
+        key: "goal",
+        question: "패션 관련 목표가 있다면 무엇인가요?",
+        options: ["나만의 스타일 찾기", "옷장 정리/미니멀", "트렌드 따라가기", "특별한 목표 없음"],
+      },
+    ],
+  },
+  "appear-skincare": {
+    areaId: "appear-skincare",
+    areaName: "스킨케어/위생",
+    steps: [
+      {
+        key: "routine",
+        question: "현재 스킨케어 루틴이 어떤가요?",
+        options: ["없음 (세안만)", "기초 (세안+로션)", "중급 (세럼/자외선차단 포함)", "풀 루틴 관리 중"],
+      },
+      {
+        key: "concern",
+        question: "피부/외모 관련 가장 큰 고민은 무엇인가요?",
+        options: ["트러블/여드름", "건조함", "노화/주름", "모공/피지", "특별한 고민 없음"],
+      },
+    ],
+  },
+  "living-housework": {
+    areaId: "living-housework",
+    areaName: "가사",
+    steps: [
+      {
+        key: "livingType",
+        question: "현재 동거 형태는 어떤가요?",
+        options: ["혼자 살고 있음", "가족과 함께", "룸메이트/동거인", "기숙사"],
+      },
+      {
+        key: "challenge",
+        question: "가사 관련 가장 큰 고민은 무엇인가요?",
+        options: ["청소/정리", "요리/식사 준비", "빨래", "가사 분담 갈등", "시간 부족"],
+      },
+    ],
+  },
+  "living-admin": {
+    areaId: "living-admin",
+    areaName: "생활관리",
+    steps: [
+      {
+        key: "wellManaged",
+        question: "현재 잘 관리되고 있는 것은 무엇인가요? (복수 선택 가능)",
+        options: ["공과금/세금", "보험/연금", "구독 서비스", "서류/우편물", "전부 다 잘 관리됨"],
+      },
+      {
+        key: "needsWork",
+        question: "관리가 잘 안 되는 것은 무엇인가요? (복수 선택 가능)",
+        options: ["공과금/세금", "보험/연금", "구독 서비스", "서류/우편물", "전부 문제없음"],
       },
     ],
   },
