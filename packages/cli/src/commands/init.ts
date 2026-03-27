@@ -68,12 +68,18 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
 
   if (adapter === "openclaw") {
     console.log("\n  🔗 OpenClaw 연결 설정");
-    // OpenClaw 게이트웨이 포트 자동 감지
+    // OpenClaw 게이트웨이 자동 감지 (응답 바디에 "openclaw" 포함 여부로 확인)
     let detectedGatewayUrl = "http://localhost:18789";
     for (const port of [18789, 18790, 18788, 3000]) {
       try {
         const res = await fetch(`http://localhost:${port}/`, { signal: AbortSignal.timeout(1000) });
-        if (res.ok) { detectedGatewayUrl = `http://localhost:${port}`; break; }
+        if (res.ok) {
+          const body = await res.text();
+          if (body.toLowerCase().includes("openclaw")) {
+            detectedGatewayUrl = `http://localhost:${port}`;
+            break;
+          }
+        }
       } catch {}
     }
     const gatewayUrl = promptWithDefault("     Gateway URL", detectedGatewayUrl);
