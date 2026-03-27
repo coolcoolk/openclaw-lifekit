@@ -216,9 +216,11 @@ mbti:
 When the user says "LifeKit 온보딩 시작해줘" or similar:
 
 ### Full Onboarding Flow
-1. Ask: "전체 영역 온보딩을 한 번에 할까요, 아니면 특정 영역만 선택할까요?"
-2. If all: proceed through all areas in order
-3. If select: show domain/area list, let user pick
+1. First, check if user's name is set: GET /api/settings → profile.name
+   - If empty: ask "어떻게 부르면 될까요?" → save via PATCH /api/settings with {"profile": {"name": "입력값"}}
+2. Ask: "전체 영역 온보딩을 한 번에 할까요, 아니면 특정 영역만 선택할까요?"
+3. If all: proceed through all areas in order
+4. If select: show domain/area list, let user pick
 
 ### Per-Area Onboarding via API
 For each area, call POST /api/onboarding/chat with:

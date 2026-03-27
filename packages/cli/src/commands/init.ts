@@ -177,7 +177,7 @@ export async function initCommand() {
 
   // 2. 기본 정보
   console.log("  2️⃣  기본 정보");
-  const name = promptWithDefault("     이름", "User");
+  const name = ""; // 에이전트 연결 후 온보딩 시 설정
   const language = promptWithDefault("     언어 (ko/en)", "ko");
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   console.log(`     타임존: ${timezone} (자동 감지)`);
