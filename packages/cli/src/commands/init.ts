@@ -82,9 +82,10 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
 
     let gatewayUrl: string;
     if (detectedPorts.length > 0) {
+      // 각 포트의 에이전트 이름 조회 (토큰 없이 일단 포트 표시)
       console.log(`     ✅ OpenClaw detected:`);
       detectedPorts.forEach((p, i) => console.log(`        ${i + 1}) localhost:${p}`));
-      if (detectedPorts.length > 1) console.log(`        ${detectedPorts.length + 1}) Enter manually`);
+      console.log(`        ${detectedPorts.length + 1}) Enter manually`);
       const choice = promptWithDefault("     Select", "1");
       const idx = parseInt(choice) - 1;
       if (idx >= 0 && idx < detectedPorts.length) {
@@ -98,7 +99,23 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
       const portInput = promptWithDefault("     Port", "18789");
       gatewayUrl = `http://localhost:${portInput}`;
     }
+
     const gatewayToken = promptSecret("     Gateway Token");
+
+    // 에이전트 이름 자동 조회
+    try {
+      const nameRes = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gatewayToken}` },
+        body: JSON.stringify({ model: "openclaw:main", messages: [{ role: "user", content: "What is your name? Reply in one word only." }], max_tokens: 20 }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (nameRes.ok) {
+        const nameData = await nameRes.json() as any;
+        const agentName = nameData?.choices?.[0]?.message?.content?.trim();
+        if (agentName) console.log(`     🤖 Agent: ${agentName}`);
+      }
+    } catch {}
 
     envLines.push(`LIFEKIT_AI_ADAPTER=openclaw`);
     envLines.push(`OPENCLAW_GATEWAY_URL=${gatewayUrl}`);
