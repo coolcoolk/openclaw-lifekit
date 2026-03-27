@@ -47,7 +47,16 @@ bun run dev:server
 bun run dev:web
 ```
 
-### 4. 접속
+### 4. 외부 서비스 연동 (선택)
+```bash
+# 구글 캘린더 연동
+lifekit connect google
+
+# Tailscale 원격 접속
+lifekit connect tailscale
+```
+
+### 5. 접속
 브라우저에서 http://localhost:5173 열기 → 밸런스 페이지에서 온보딩 시작
 
 ## AI 연결 방법

@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { initCommand } from "./commands/init";
+import { connectCommand } from "./commands/connect";
 import { startCommand } from "./commands/start";
 import { statusCommand } from "./commands/status";
 import { versionCommand } from "./commands/version";
@@ -11,6 +12,15 @@ switch (command) {
   case "init":
     await initCommand();
     break;
+  case "connect": {
+    const service = process.argv[3];
+    if (!service) {
+      console.log("사용법: lifekit connect <google|tailscale>");
+    } else {
+      await connectCommand(service);
+    }
+    break;
+  }
   case "start":
     await startCommand();
     break;
@@ -27,7 +37,8 @@ switch (command) {
   Usage: lifekit <command>
 
   Commands:
-    init      Initial setup (AI adapter, Google Calendar, etc.)
+    init      Initial setup (AI adapter, etc.)
+    connect   Connect external services (google, tailscale)
     start     Start server + web dashboard
     status    Show server/web status and DB path
     version   Show version

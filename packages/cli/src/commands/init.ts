@@ -1,11 +1,9 @@
-import { resolve, join } from "path";
+import { resolve } from "path";
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
 import { homedir } from "os";
 
 const LIFEKIT_DIR = resolve(homedir(), ".lifekit");
 const CONFIG_PATH = resolve(LIFEKIT_DIR, "config.json");
-const GWS_BIN = resolve(homedir(), ".npm-global/bin/gws");
-
 // packages/server 기준 경로
 const PROJECT_ROOT = resolve(import.meta.dir, "../../../../");
 const SERVER_DATA_DIR = resolve(PROJECT_ROOT, "packages/server/data");
@@ -62,177 +60,6 @@ function promptWithDefault(question: string, defaultValue: string): string {
 function promptSecret(question: string): string {
   const answer = prompt(`${question}: `);
   return answer;
-}
-
-async function runCommand(cmd: string, args: string[]): Promise<{ stdout: string; exitCode: number }> {
-  const proc = Bun.spawn([cmd, ...args], {
-    stdout: "pipe",
-    stderr: "pipe",
-  });
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-  return { stdout: stdout.trim(), exitCode };
-}
-
-async function runInteractive(cmd: string, args: string[]): Promise<number> {
-  const proc = Bun.spawn([cmd, ...args], {
-    stdout: "inherit",
-    stderr: "inherit",
-    stdin: "inherit",
-  });
-  return proc.exited;
-}
-
-// ── 구글 캘린더 이벤트 패턴 분석 ──
-function analyzeEvents(events: any[]): {
-  recentEventCount: number;
-  topKeywords: string[];
-  weeklyFrequency: number;
-  analyzedAt: string;
-} {
-  const now = new Date();
-
-  // 키워드 추출 (이벤트 제목에서)
-  const keywordCounts = new Map<string, number>();
-  for (const event of events) {
-    const summary = event.summary || "";
-    // 한국어/영어 단어 추출 (2글자 이상)
-    const words = summary
-      .replace(/[^\w\s가-힣]/g, " ")
-      .split(/\s+/)
-      .filter((w: string) => w.length >= 2);
-    for (const word of words) {
-      keywordCounts.set(word, (keywordCounts.get(word) || 0) + 1);
-    }
-  }
-
-  // 상위 키워드
-  const topKeywords = [...keywordCounts.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([word]) => word);
-
-  // 주간 빈도 (30일 = ~4.3주)
-  const weeklyFrequency = Math.round((events.length / 4.3) * 10) / 10;
-
-  return {
-    recentEventCount: events.length,
-    topKeywords,
-    weeklyFrequency,
-    analyzedAt: now.toISOString().slice(0, 10),
-  };
-}
-
-// ── 구글 캘린더 연동 ──
-async function connectGoogleCalendar(): Promise<{
-  connected: boolean;
-  calendars: string[];
-  calendarContext: object;
-} | null> {
-  const answer = prompt("\n📅 구글 캘린더 연동할까요? (Y/n): ");
-  if (answer.toLowerCase() === "n") {
-    console.log("  → 나중에 lifekit connect google로 연동 가능해요.\n");
-    return null;
-  }
-
-  // 이미 인증됐는지 확인
-  const checkResult = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--params", '{"maxResults":1}']);
-  if (checkResult.exitCode !== 0) {
-    // 미인증 — 브라우저 인증 필요
-    console.log("\n  🔐 구글 계정 인증 중... (브라우저가 열립니다)");
-    console.log("  브라우저에서 인증 완료 후 자동으로 진행됩니다.\n");
-
-    // 백그라운드로 gws auth 실행 후 최대 60초 대기
-    const authProc = Bun.spawn([GWS_BIN, "auth", "login"], {
-      stdout: "inherit",
-      stderr: "inherit",
-      stdin: "inherit",
-    });
-
-    const timeout = new Promise<number>((resolve) => setTimeout(() => resolve(-1), 60000));
-    const authResult = await Promise.race([authProc.exited, timeout]);
-
-    if (authResult !== 0) {
-      // 타임아웃이거나 실패 — 인증 됐는지 한 번 더 확인
-      const recheck = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--maxResults", "1"]);
-      if (recheck.exitCode !== 0) {
-        console.log("\n  ⚠️  구글 인증에 실패했어요. 나중에 Settings 페이지에서 연동할 수 있어요.\n");
-        return null;
-      }
-    }
-  }
-
-  console.log("  ✅ 구글 계정 연결 완료!\n");
-
-  // 캘린더 목록 가져오기
-  console.log("  📋 캘린더 목록 조회 중...");
-  const calListResult = await runCommand(GWS_BIN, ["calendar", "calendarList", "list"]);
-  if (calListResult.exitCode !== 0) {
-    console.log("  ⚠️  캘린더 목록 조회 실패. 기본 설정으로 진행합니다.\n");
-    return { connected: true, calendars: [], calendarContext: {} };
-  }
-
-  let calendarListData: any;
-  try {
-    calendarListData = JSON.parse(calListResult.stdout);
-  } catch {
-    console.log("  ⚠️  캘린더 데이터 파싱 실패. 기본 설정으로 진행합니다.\n");
-    return { connected: true, calendars: [], calendarContext: {} };
-  }
-
-  const calendarIds: string[] = (calendarListData.items || [])
-    .filter((cal: any) => cal.accessRole === "owner" || cal.accessRole === "writer")
-    .map((cal: any) => cal.id);
-
-  console.log(`  📅 발견된 캘린더: ${calendarIds.length}개`);
-  for (const id of calendarIds) {
-    console.log(`     - ${id}`);
-  }
-
-  // 최근 30일 이벤트 조회
-  console.log("\n  📊 최근 30일 이벤트 분석 중...");
-  const now = new Date();
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const timeMin = thirtyDaysAgo.toISOString();
-  const timeMax = now.toISOString();
-
-  const allEvents: any[] = [];
-  for (const calId of calendarIds) {
-    const eventsResult = await runCommand(GWS_BIN, [
-      "calendar", "events", "list",
-      "--calendarId", calId,
-      "--timeMin", timeMin,
-      "--timeMax", timeMax,
-      "--singleEvents", "true",
-      "--orderBy", "startTime",
-    ]);
-
-    if (eventsResult.exitCode === 0) {
-      try {
-        const eventsData = JSON.parse(eventsResult.stdout);
-        const items = eventsData.items || [];
-        allEvents.push(...items);
-      } catch {
-        // skip this calendar
-      }
-    }
-  }
-
-  console.log(`  📈 총 ${allEvents.length}개 이벤트 발견\n`);
-
-  const calendarContext = analyzeEvents(allEvents);
-
-  if (calendarContext.topKeywords.length > 0) {
-    console.log(`  🔑 자주 나오는 키워드: ${calendarContext.topKeywords.join(", ")}`);
-  }
-  console.log(`  📊 주간 이벤트 빈도: ${calendarContext.weeklyFrequency}회`);
-  console.log("");
-
-  return {
-    connected: true,
-    calendars: calendarIds,
-    calendarContext,
-  };
 }
 
 // ── AI 연결 테스트 ──
@@ -391,10 +218,6 @@ export async function initCommand() {
   const weeklyReviewTime = promptWithDefault("     주간 회고 시간 (HH:MM)", "21:00");
   console.log("");
 
-  // 7. 구글 캘린더 연동
-  console.log("  6️⃣  구글 캘린더 연동");
-  const gcalResult = await connectGoogleCalendar();
-
   // ── 저장 ──
 
   // config.json 저장 (~/.lifekit/config.json)
@@ -408,7 +231,6 @@ export async function initCommand() {
     timezone,
     dataDir,
     adapter,
-    ...(gcalResult && { googleCalendar: gcalResult }),
     createdAt: new Date().toISOString(),
   };
 
@@ -442,8 +264,9 @@ export async function initCommand() {
   🌐 접속:
      로컬:      http://localhost:5173
 
-  📱 모바일 원격 접속:
-     원격 접속 Kit (Tailscale) 설치 후 가능
+  🔗 선택 연동:
+     구글 캘린더:  lifekit connect google
+     원격 접속:   lifekit connect tailscale
 
   🤖 AI 온보딩:
      서버 실행 후 OpenClaw에게 "LifeKit 온보딩 시작해줘" 라고 말하면
