@@ -364,20 +364,7 @@ export async function initCommand() {
     console.log(`  📁 데이터 디렉토리 생성: ${resolvedDataDir}`);
   }
 
-  // 4. Tailscale
-  console.log("  3️⃣  Tailscale 설정");
-  let tailscaleIp = "";
-  const tsResult = await runCommand("tailscale", ["ip", "-4"]);
-  if (tsResult.exitCode === 0 && tsResult.stdout) {
-    tailscaleIp = tsResult.stdout.split("\n")[0];
-    console.log(`     Tailscale IP: ${tailscaleIp} ✅`);
-  } else {
-    console.log("     ⚠️  Tailscale이 설치되지 않았거나 로그인되지 않았습니다.");
-    console.log("     → https://tailscale.com/download 에서 설치 후 tailscale up 실행");
-  }
-  console.log("");
-
-  // 5. AI 어댑터 선택 + 연결 테스트
+  // 4. AI 어댑터 선택 + 연결 테스트
   console.log("  4️⃣  AI 어댑터 선택");
   console.log("     1) openclaw (권장)");
   console.log("     2) anthropic");
@@ -421,7 +408,6 @@ export async function initCommand() {
     timezone,
     dataDir,
     adapter,
-    ...(tailscaleIp && { tailscaleIp }),
     ...(gcalResult && { googleCalendar: gcalResult }),
     createdAt: new Date().toISOString(),
   };
@@ -454,10 +440,10 @@ export async function initCommand() {
      lifekit start
 
   🌐 접속:
-     로컬:      http://localhost:5173${tailscaleIp ? `\n     Tailscale:  http://${tailscaleIp}:5173` : ""}
+     로컬:      http://localhost:5173
 
-  📱 모바일 접속:
-     ${tailscaleIp ? `http://${tailscaleIp}:5173 을 홈 화면에 추가` : "Tailscale 설정 후 모바일 접속 가능"}
+  📱 모바일 원격 접속:
+     원격 접속 Kit (Tailscale) 설치 후 가능
 
   🤖 AI 온보딩:
      서버 실행 후 OpenClaw에게 "LifeKit 온보딩 시작해줘" 라고 말하면
