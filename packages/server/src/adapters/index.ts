@@ -1,6 +1,7 @@
 import type { LifeKitAIAdapter } from "./types";
 import { AnthropicAdapter } from "./anthropic";
 import { OllamaAdapter } from "./ollama";
+import { OpenClawAdapter } from "./openclaw";
 
 let cachedAdapter: LifeKitAIAdapter | null = null;
 
@@ -10,6 +11,9 @@ export function getAdapter(): LifeKitAIAdapter {
   const adapterName = process.env.LIFEKIT_AI_ADAPTER || "anthropic";
 
   switch (adapterName) {
+    case "openclaw":
+      cachedAdapter = new OpenClawAdapter();
+      break;
     case "ollama":
       cachedAdapter = new OllamaAdapter();
       break;
