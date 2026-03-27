@@ -1,0 +1,16 @@
+{
+  "name": "lifekit",
+  "version": "0.1.0",
+  "description": "LifeKit CLI — Personal Life OS for Local AI Assistants",
+  "type": "module",
+  "bin": {
+    "lifekit": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "echo 'CLI ready. Run: bun run src/index.ts'",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

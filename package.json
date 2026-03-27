@@ -1,0 +1,17 @@
+{
+  "name": "openclaw-lifekit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw LifeKit — 에이전트의 비서력을 극대화하는 로컬 데이터 인프라",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "dev:server": "bun run --filter server dev",
+    "dev:web": "bun run --filter web dev",
+    "build": "bun run --filter '*' build",
+    "db:migrate": "bun run --filter server db:migrate",
+    "db:seed": "bun run --filter server db:seed"
+  }
+}
