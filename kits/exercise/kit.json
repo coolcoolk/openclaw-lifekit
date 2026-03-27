@@ -1,0 +1,10 @@
+{
+  "id": "exercise",
+  "name": "활동 기록",
+  "nameEn": "Activity Log",
+  "version": "0.1.0",
+  "areaId": "health-exercise",
+  "description": "운동 및 신체 활동을 기록합니다",
+  "tables": ["activity_logs", "activity_types"],
+  "routes": "/api/kits/exercise"
+}

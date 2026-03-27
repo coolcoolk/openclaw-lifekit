@@ -1,0 +1,10 @@
+{
+  "id": "culture",
+  "name": "문화생활",
+  "nameEn": "Culture Log",
+  "version": "0.1.0",
+  "areaId": "growth-culture",
+  "description": "영화, 공연, 전시 등 문화생활을 기록합니다",
+  "tables": ["culture_logs"],
+  "routes": "/api/kits/culture"
+}

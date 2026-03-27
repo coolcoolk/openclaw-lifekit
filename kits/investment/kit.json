@@ -1,0 +1,10 @@
+{
+  "id": "investment",
+  "name": "투자",
+  "nameEn": "Investment Tracker",
+  "version": "0.1.0",
+  "areaId": "finance-invest",
+  "description": "투자 자산과 매매 기록을 관리합니다",
+  "tables": ["investments", "investment_trades"],
+  "routes": "/api/kits/investment"
+}

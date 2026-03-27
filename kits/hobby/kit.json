@@ -1,0 +1,10 @@
+{
+  "id": "hobby",
+  "name": "취미",
+  "nameEn": "Hobby Tracker",
+  "version": "0.1.0",
+  "areaId": "growth-hobby",
+  "description": "취미 프로젝트와 활동을 기록합니다",
+  "tables": ["hobby_projects", "hobby_logs"],
+  "routes": "/api/kits/hobby"
+}

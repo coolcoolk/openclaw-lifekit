@@ -11,6 +11,15 @@ import { settingsRoutes } from "./routes/settings";
 import { relationRoutes } from "./routes/relations";
 import { reportRoutes } from "./routes/reports";
 import { xpRoutes } from "./routes/xp";
+import { kitRoutes } from "./routes/kits";
+import { exerciseRoutes } from "./routes/kits/exercise";
+import { dietRoutes } from "./routes/kits/diet";
+import { financeRoutes } from "./routes/kits/finance";
+import { investmentRoutes } from "./routes/kits/investment";
+import { learningRoutes } from "./routes/kits/learning";
+import { cultureRoutes } from "./routes/kits/culture";
+import { hobbyRoutes } from "./routes/kits/hobby";
+import { fashionRoutes } from "./routes/kits/fashion";
 import { syncGoogleCalendar } from "./services/googleCalendarSync";
 import { seedProjects } from "./db/seedProjects";
 import { startReportScheduler } from "./services/reportScheduler";
@@ -40,6 +49,17 @@ app.route("/api/settings", settingsRoutes);
 app.route("/api/relations", relationRoutes);
 app.route("/api/reports", reportRoutes);
 app.route("/api/areas/xp", xpRoutes);
+
+// Kit routes
+app.route("/api/kits", kitRoutes);
+app.route("/api/kits/exercise", exerciseRoutes);
+app.route("/api/kits/diet", dietRoutes);
+app.route("/api/kits/finance", financeRoutes);
+app.route("/api/kits/investment", investmentRoutes);
+app.route("/api/kits/learning", learningRoutes);
+app.route("/api/kits/culture", cultureRoutes);
+app.route("/api/kits/hobby", hobbyRoutes);
+app.route("/api/kits/fashion", fashionRoutes);
 
 // 도메인/영역 시드 (새 DB일 때만)
 import { domains as domainsTable, areas as areasTable } from "./db/schema";

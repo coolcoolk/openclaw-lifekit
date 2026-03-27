@@ -1,0 +1,10 @@
+{
+  "id": "relations",
+  "name": "관계",
+  "nameEn": "Relationships",
+  "version": "0.1.0",
+  "areaId": "rel-lover",
+  "description": "연인, 친구, 가족, 반려동물 관계를 관리합니다",
+  "tables": ["relations"],
+  "routes": "/api/relations"
+}

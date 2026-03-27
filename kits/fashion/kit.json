@@ -1,0 +1,10 @@
+{
+  "id": "fashion",
+  "name": "패션/옷장",
+  "nameEn": "Wardrobe",
+  "version": "0.1.0",
+  "areaId": "appear-fashion",
+  "description": "옷장 아이템과 패션을 관리합니다",
+  "tables": ["wardrobes"],
+  "routes": "/api/kits/fashion"
+}

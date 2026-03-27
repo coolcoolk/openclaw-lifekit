@@ -1,0 +1,10 @@
+{
+  "id": "diet",
+  "name": "식습관",
+  "nameEn": "Diet Log",
+  "version": "0.1.0",
+  "areaId": "health-diet",
+  "description": "식단과 영양 섭취를 기록합니다",
+  "tables": ["meal_logs"],
+  "routes": "/api/kits/diet"
+}

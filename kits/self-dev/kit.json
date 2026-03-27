@@ -1,0 +1,10 @@
+{
+  "id": "self-dev",
+  "name": "자기계발",
+  "nameEn": "Self Development",
+  "version": "0.1.0",
+  "areaId": "growth-self",
+  "description": "독서, 강의, 자격증 등 학습 활동을 기록합니다",
+  "tables": ["learning_logs"],
+  "routes": "/api/kits/learning"
+}

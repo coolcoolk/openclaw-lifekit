@@ -1,0 +1,10 @@
+{
+  "id": "finance",
+  "name": "가계부 + 고정비",
+  "nameEn": "Finance Tracker",
+  "version": "0.1.0",
+  "areaId": "finance-spending",
+  "description": "수입/지출과 고정비를 관리합니다",
+  "tables": ["expenses", "fixed_expenses"],
+  "routes": "/api/kits/finance"
+}
