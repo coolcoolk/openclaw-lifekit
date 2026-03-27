@@ -354,7 +354,7 @@ export async function initCommand() {
   const language = promptWithDefault("     언어 (ko/en)", "ko");
   const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const timezone = promptWithDefault("     타임존", detectedTimezone);
-  const dataDir = promptWithDefault("     데이터 디렉토리", "~/.lifekit/");
+  const dataDir = "~/.lifekit/";
   console.log("");
 
   // 3. 데이터 디렉토리 생성
