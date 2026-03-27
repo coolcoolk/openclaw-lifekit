@@ -68,7 +68,15 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
 
   if (adapter === "openclaw") {
     console.log("\n  🔗 OpenClaw 연결 설정");
-    const gatewayUrl = promptWithDefault("     Gateway URL", "http://localhost:18789");
+    // OpenClaw 게이트웨이 포트 자동 감지
+    let detectedGatewayUrl = "http://localhost:18789";
+    for (const port of [18789, 18790, 18788, 3000]) {
+      try {
+        const res = await fetch(`http://localhost:${port}/`, { signal: AbortSignal.timeout(1000) });
+        if (res.ok) { detectedGatewayUrl = `http://localhost:${port}`; break; }
+      } catch {}
+    }
+    const gatewayUrl = promptWithDefault("     Gateway URL", detectedGatewayUrl);
     const gatewayToken = promptSecret("     Gateway Token");
 
     envLines.push(`LIFEKIT_AI_ADAPTER=openclaw`);
