@@ -1,4 +1,50 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+
+// 주요 타임존 목록
+const TIMEZONES = Intl.supportedValuesOf("timeZone");
+
+function TimezoneSelect({ value, onChange, inputClass }: {
+  value: string;
+  onChange: (tz: string) => void;
+  inputClass: string;
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    if (!query) return TIMEZONES.slice(0, 20);
+    return TIMEZONES.filter((tz) =>
+      tz.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 20);
+  }, [query]);
+
+  return (
+    <div className="relative">
+      <input
+        className={inputClass}
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Asia/Seoul"
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          {filtered.map((tz) => (
+            <button
+              key={tz}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-muted transition-colors"
+              onMouseDown={() => { onChange(tz); setQuery(tz); setOpen(false); }}
+            >
+              {tz}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 import { api, type Settings, type Area, type Domain } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -202,11 +248,10 @@ export function SettingsPage() {
           </div>
           <div>
             <label className={labelClass}>{t("settings.timezone")}</label>
-            <input
-              className={inputClass}
+            <TimezoneSelect
               value={settings.profile.timezone}
-              onChange={(e) => update("profile", "timezone", e.target.value)}
-              placeholder="Asia/Seoul"
+              onChange={(tz) => update("profile", "timezone", tz)}
+              inputClass={inputClass}
             />
           </div>
           <div>
