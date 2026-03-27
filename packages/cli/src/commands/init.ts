@@ -82,9 +82,17 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
 
     let gatewayUrl: string;
     if (detectedPorts.length > 0) {
-      console.log(`     ✅ OpenClaw detected on port(s): ${detectedPorts.join(", ")}`);
-      const portInput = promptWithDefault("     Port", String(detectedPorts[0]));
-      gatewayUrl = `http://localhost:${portInput}`;
+      console.log(`     ✅ OpenClaw detected:`);
+      detectedPorts.forEach((p, i) => console.log(`        ${i + 1}) localhost:${p}`));
+      if (detectedPorts.length > 1) console.log(`        ${detectedPorts.length + 1}) Enter manually`);
+      const choice = promptWithDefault("     Select", "1");
+      const idx = parseInt(choice) - 1;
+      if (idx >= 0 && idx < detectedPorts.length) {
+        gatewayUrl = `http://localhost:${detectedPorts[idx]}`;
+      } else {
+        const portInput = prompt("     Port: ");
+        gatewayUrl = `http://localhost:${portInput}`;
+      }
     } else {
       console.log("     ⚠️  No OpenClaw gateway detected. Is it running?");
       const portInput = promptWithDefault("     Port", "18789");
