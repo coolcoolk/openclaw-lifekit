@@ -136,7 +136,7 @@ async function connectGoogleCalendar(): Promise<{
   }
 
   // 이미 인증됐는지 확인
-  const checkResult = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--maxResults", "1"]);
+  const checkResult = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--params", '{"maxResults":1}']);
   if (checkResult.exitCode !== 0) {
     // 미인증 — 브라우저 인증 필요
     console.log("\n  🔐 구글 계정 인증 중... (브라우저가 열립니다)");
