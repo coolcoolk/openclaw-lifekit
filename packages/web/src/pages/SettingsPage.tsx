@@ -150,9 +150,14 @@ export function SettingsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!confirm(t("settings.resetConfirm"))) return;
-    alert(t("settings.resetFuture"));
+    try {
+      await fetch("/api/settings/reset", { method: "DELETE" });
+      window.location.reload();
+    } catch {
+      alert("초기화에 실패했습니다.");
+    }
   };
 
   const handleLanguageChange = (lang: "ko" | "en") => {
@@ -391,6 +396,26 @@ export function SettingsPage() {
             <span className="text-muted-foreground">{t("settings.engine")}</span>
             <span className="font-mono">OpenClaw Power Layer</span>
           </div>
+        </div>
+      </SectionCard>
+
+      {/* 데이터 관리 */}
+      <SectionCard icon={Database} title={language === "ko" ? "데이터 관리" : "Data Management"}>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+          >
+            <Download size={14} />
+            {language === "ko" ? "설정 내보내기" : "Export Settings"}
+          </button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/5 transition-colors"
+          >
+            <RotateCcw size={14} />
+            {language === "ko" ? "설정 초기화" : "Reset Settings"}
+          </button>
         </div>
       </SectionCard>
     </div>

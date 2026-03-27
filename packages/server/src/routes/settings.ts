@@ -95,6 +95,12 @@ settingsRoutes.get("/", (c) => {
   return c.json(loadSettings());
 });
 
+// DELETE /api/settings/reset — 설정 초기화
+settingsRoutes.delete("/reset", (c) => {
+  saveSettings({ ...DEFAULT_SETTINGS });
+  return c.json({ ok: true });
+});
+
 // PATCH /api/settings — deep merge
 settingsRoutes.patch("/", async (c) => {
   const body = await c.req.json();
