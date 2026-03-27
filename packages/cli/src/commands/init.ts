@@ -135,12 +135,31 @@ async function connectGoogleCalendar(): Promise<{
     return null;
   }
 
-  console.log("\n  🔐 구글 계정 인증 중... (브라우저가 열립니다)");
-  const authResult = await runInteractive(GWS_BIN, ["auth", "login"]);
+  // 이미 인증됐는지 확인
+  const checkResult = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--maxResults", "1"]);
+  if (checkResult.exitCode !== 0) {
+    // 미인증 — 브라우저 인증 필요
+    console.log("\n  🔐 구글 계정 인증 중... (브라우저가 열립니다)");
+    console.log("  브라우저에서 인증 완료 후 자동으로 진행됩니다.\n");
 
-  if (authResult !== 0) {
-    console.log("  ⚠️  구글 인증에 실패했어요. 나중에 lifekit connect google로 다시 시도해주세요.\n");
-    return null;
+    // 백그라운드로 gws auth 실행 후 최대 60초 대기
+    const authProc = Bun.spawn([GWS_BIN, "auth", "login"], {
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: "inherit",
+    });
+
+    const timeout = new Promise<number>((resolve) => setTimeout(() => resolve(-1), 60000));
+    const authResult = await Promise.race([authProc.exited, timeout]);
+
+    if (authResult !== 0) {
+      // 타임아웃이거나 실패 — 인증 됐는지 한 번 더 확인
+      const recheck = await runCommand(GWS_BIN, ["calendar", "calendarList", "list", "--maxResults", "1"]);
+      if (recheck.exitCode !== 0) {
+        console.log("\n  ⚠️  구글 인증에 실패했어요. 나중에 Settings 페이지에서 연동할 수 있어요.\n");
+        return null;
+      }
+    }
   }
 
   console.log("  ✅ 구글 계정 연결 완료!\n");
