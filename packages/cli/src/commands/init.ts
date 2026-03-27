@@ -163,24 +163,73 @@ function saveEnvFile(envLines: string[]) {
 }
 
 // ── 메인 init 커맨드 ──
+// 다국어 텍스트
+const T = {
+  ko: {
+    title: "🧰 LifeKit 초기 설정",
+    envCheck: "1️⃣  환경 확인",
+    basicInfo: "2️⃣  기본 정보",
+    timezoneAuto: "타임존: %s (자동 감지)",
+    aiAdapter: "3️⃣  AI 어댑터 선택",
+    adapterPrompt: "선택 (1/2/3/4)",
+    reviewTime: "4️⃣  회고 시간 설정",
+    briefingPrompt: "모닝 브리핑 시간",
+    reviewPrompt: "일일 회고 시간",
+    weeklyReviewPrompt: "주간 회고 시간",
+    done: "✅ LifeKit 초기 설정 완료!",
+    startHint: "시작하기:",
+    connectHint: "선택 연동:",
+    googleHint: "구글 캘린더:",
+    tailscaleHint: "원격 접속:",
+    onboardingHint: "AI 온보딩:",
+    onboardingDesc: "서버 실행 후 OpenClaw에게 \"LifeKit 온보딩 시작해줘\" 라고 말하면\n  대화형으로 각 영역별 초기 설정을 진행할 수 있어요.",
+  },
+  en: {
+    title: "🧰 LifeKit Setup",
+    envCheck: "1️⃣  Environment Check",
+    basicInfo: "2️⃣  Basic Info",
+    timezoneAuto: "Timezone: %s (auto-detected)",
+    aiAdapter: "3️⃣  AI Adapter",
+    adapterPrompt: "Select (1/2/3/4)",
+    reviewTime: "4️⃣  Review Schedule",
+    briefingPrompt: "Morning briefing time",
+    reviewPrompt: "Daily review time",
+    weeklyReviewPrompt: "Weekly review time",
+    done: "✅ LifeKit setup complete!",
+    startHint: "Get started:",
+    connectHint: "Optional integrations:",
+    googleHint: "Google Calendar:",
+    tailscaleHint: "Remote access:",
+    onboardingHint: "AI Onboarding:",
+    onboardingDesc: "After starting the server, tell your OpenClaw agent:\n  \"Start LifeKit onboarding\"\n  to set up each life area through conversation.",
+  },
+};
+
 export async function initCommand() {
+  // 언어 먼저 선택 (기본: 영어)
+  process.stdout.write("\n  🌐 Language / 언어\n");
+  process.stdout.write("     1) English (default)\n");
+  process.stdout.write("     2) 한국어\n");
+  const langChoice = promptWithDefault("     Select / 선택 (1/2)", "1");
+  const language = langChoice === "2" ? "ko" : "en";
+  const t = T[language];
+
   console.log(`
-  🧰 LifeKit 초기 설정
+  ${t.title}
   ─────────────────────
   `);
 
   // 1. 환경 체크
-  console.log("  1️⃣  환경 확인");
+  console.log(`  ${t.envCheck}`);
   const bunVersion = Bun.version;
   console.log(`     Bun: v${bunVersion} ✅`);
   console.log("");
 
   // 2. 기본 정보
-  console.log("  2️⃣  기본 정보");
+  console.log(`  ${t.basicInfo}`);
   const name = ""; // 에이전트 연결 후 온보딩 시 설정
-  const language = promptWithDefault("     언어 (ko/en)", "ko");
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  console.log(`     타임존: ${timezone} (자동 감지)`);
+  console.log(`     ${t.timezoneAuto.replace("%s", timezone)}`);
   const dataDir = "~/.lifekit/";
   console.log("");
 
@@ -188,16 +237,15 @@ export async function initCommand() {
   const resolvedDataDir = dataDir.replace("~", homedir());
   if (!existsSync(resolvedDataDir)) {
     mkdirSync(resolvedDataDir, { recursive: true });
-    console.log(`  📁 데이터 디렉토리 생성: ${resolvedDataDir}`);
   }
 
   // 4. AI 어댑터 선택 + 연결 테스트
-  console.log("  4️⃣  AI 어댑터 선택");
-  console.log("     1) openclaw (권장)");
+  console.log(`  ${t.aiAdapter}`);
+  console.log("     1) openclaw (recommended)");
   console.log("     2) anthropic");
   console.log("     3) ollama");
-  console.log("     4) manual (나중에 직접 설정)");
-  const adapterChoice = promptWithDefault("     선택 (1/2/3/4)", "1");
+  console.log("     4) manual");
+  const adapterChoice = promptWithDefault(`     ${t.adapterPrompt}`, "1");
   const adapterMap: Record<string, string> = { "1": "openclaw", "2": "anthropic", "3": "ollama", "4": "manual" };
   const adapter = adapterMap[adapterChoice] || "openclaw";
   console.log(`     → ${adapter} 선택됨`);
@@ -211,11 +259,10 @@ export async function initCommand() {
   console.log("");
 
   // 6. 회고 시간 설정
-  console.log("  5️⃣  회고 시간 설정");
-  const briefingTime = promptWithDefault("     모닝 브리핑 시간 (HH:MM)", "08:00");
-  const reviewTime = promptWithDefault("     일일 회고 시간 (HH:MM)", "22:00");
-  console.log("     주간 회고 요일: 일요일");
-  const weeklyReviewTime = promptWithDefault("     주간 회고 시간 (HH:MM)", "21:00");
+  console.log(`  ${t.reviewTime}`);
+  const briefingTime = promptWithDefault(`     ${t.briefingPrompt} (HH:MM)`, "08:00");
+  const reviewTime = promptWithDefault(`     ${t.reviewPrompt} (HH:MM)`, "22:00");
+  const weeklyReviewTime = promptWithDefault(`     ${t.weeklyReviewPrompt} (HH:MM)`, "21:00");
   console.log("");
 
   // ── 저장 ──
@@ -255,24 +302,21 @@ export async function initCommand() {
   console.log("");
 
   // ── 완료 안내 ──
-  console.log(`  ✅ LifeKit 초기 설정 완료!
+  const isKo = language === "ko";
+  console.log(`  ${t.done}
   ═══════════════════════════
 
-  📦 시작하기:
-     lifekit start
+  📦 ${t.startHint}
+     bun run lifekit start
 
-  🌐 접속:
-     로컬:      http://localhost:5173
+  🌐 ${isKo ? "접속" : "Access"}:
+     ${isKo ? "로컬" : "Local"}:  http://localhost:5173
 
-  🔗 선택 연동:
-     구글 캘린더:  lifekit connect google
-     원격 접속:   lifekit connect tailscale
+  🔗 ${t.connectHint}
+     ${t.googleHint}    bun run lifekit connect google
+     ${t.tailscaleHint} bun run lifekit connect tailscale
 
-  🤖 AI 온보딩:
-     서버 실행 후 OpenClaw에게 "LifeKit 온보딩 시작해줘" 라고 말하면
-     대화형으로 각 영역별 초기 설정을 진행할 수 있어요.
-
-     • 전체 영역 한 번에 or 원하는 영역만 선택 가능
-     • 나중에 http://localhost:5173 밸런스 페이지에서도 진행 가능
+  🤖 ${t.onboardingHint}
+     ${t.onboardingDesc}
   `);
 }
