@@ -208,3 +208,39 @@ mbti:
 3. If no profile → Start onboarding conversation
 4. If profile exists → Check current time and deliver appropriate routine (briefing/review)
 5. For ad-hoc requests → Use the API Reference to fulfill user commands
+
+---
+
+## Agent Onboarding Protocol
+
+When the user says "LifeKit 온보딩 시작해줘" or similar:
+
+### Full Onboarding Flow
+1. Ask: "전체 영역 온보딩을 한 번에 할까요, 아니면 특정 영역만 선택할까요?"
+2. If all: proceed through all areas in order
+3. If select: show domain/area list, let user pick
+
+### Per-Area Onboarding via API
+For each area, call POST /api/onboarding/chat with:
+- areaId: the area id (e.g. "health-exercise")
+- message: user response
+- sessionId: returned from first call, reuse for follow-ups
+
+Keep calling until response contains "completed": true
+
+After each area completes:
+- Confirm: "[영역명] 온보딩 완료!"
+- Ask if they want to continue to next area
+
+### Area IDs Reference
+건강: health-exercise, health-mental, health-diet
+일: work-job, work-business, work-side
+재무: finance-spending, finance-invest
+관계: rel-lover, rel-friends, rel-family, rel-pet
+성장/여가: growth-self, growth-culture, growth-hobby, growth-travel
+외모: appear-fashion, appear-skincare
+생활: living-housework, living-admin
+
+### After Onboarding
+- Summary of completed areas
+- "밸런스 페이지(http://localhost:5173)에서 확인하거나 추가 온보딩을 진행할 수 있어요."
