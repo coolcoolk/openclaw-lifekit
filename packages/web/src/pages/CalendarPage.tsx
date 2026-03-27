@@ -166,9 +166,13 @@ function groupTasksByDate(tasks: Task[]): { label: string; tasks: Task[] }[] {
 function TasksTabContent({
   tasks,
   onToggleComplete,
+  completingIds,
+  removingIds,
 }: {
   tasks: Task[];
   onToggleComplete: (task: Task) => void;
+  completingIds: Set<string>;
+  removingIds: Set<string>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -211,6 +215,7 @@ function TasksTabContent({
               const domainColor = task.domainId
                 ? (DOMAIN_COLORS[task.domainId] || DOMAIN_COLORS["default"])
                 : DOMAIN_COLORS["default"];
+              const isRemoving = removingIds.has(task.id);
               return (
                 <div
                   key={task.id}
@@ -223,14 +228,25 @@ function TasksTabContent({
                     extendedProps: { taskId: task.id },
                   })}
                   className="flex items-start gap-1.5 px-1.5 py-1.5 rounded-md hover:bg-muted/60 cursor-grab active:cursor-grabbing group transition-colors"
-                  style={{ borderLeft: `2px solid ${domainColor}` }}
+                  style={{
+                    borderLeft: `2px solid ${domainColor}`,
+                    opacity: isRemoving ? 0 : 1,
+                    maxHeight: isRemoving ? 0 : 100,
+                    marginBottom: isRemoving ? 0 : undefined,
+                    overflow: "hidden",
+                    transition: "opacity 0.3s, max-height 0.4s, margin 0.4s",
+                  }}
                 >
                   <GripVertical size={12} className="shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground mt-0.5" />
                   <button
                     onClick={(e) => { e.stopPropagation(); onToggleComplete(task); }}
-                    className="w-4 h-4 rounded border border-border flex items-center justify-center shrink-0 hover:border-primary hover:bg-primary/10 transition-colors mt-0.5"
+                    className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors mt-0.5 ${
+                      completingIds.has(task.id) || task.status === "done"
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary hover:bg-primary/10"
+                    }`}
                   >
-                    {task.status === "done" && <Check size={10} className="text-primary" />}
+                    {(task.status === "done" || completingIds.has(task.id)) && <Check size={10} className="text-primary" />}
                   </button>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1">
@@ -337,6 +353,8 @@ function CalendarSidebar({
   onDateSelect,
   sidebarTasks,
   onToggleTaskComplete,
+  completingIds,
+  removingIds,
 }: {
   open: boolean;
   domains: Domain[];
@@ -347,6 +365,8 @@ function CalendarSidebar({
   onDateSelect: (date: Date) => void;
   sidebarTasks: Task[];
   onToggleTaskComplete: (task: Task) => void;
+  completingIds: Set<string>;
+  removingIds: Set<string>;
 }) {
   const [activeTab, setActiveTab] = useState<"tasks" | "domains">("tasks");
 
@@ -388,6 +408,8 @@ function CalendarSidebar({
             <TasksTabContent
               tasks={sidebarTasks}
               onToggleComplete={onToggleTaskComplete}
+              completingIds={completingIds}
+              removingIds={removingIds}
             />
           ) : (
             <DomainsTabContent
@@ -665,7 +687,7 @@ function EventDetailContent({
       {/* 액션 버튼 */}
       <div className="border-t border-border px-5 py-3 flex gap-2 shrink-0">
         <button
-          onClick={() => { onDelete(event.id); onClose(); }}
+          onClick={() => { onClose(); onDelete(event.id); }}
           className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 size={14} />
@@ -1069,6 +1091,14 @@ export function CalendarPage() {
   const [hiddenDomains, setHiddenDomains] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  // ── 삭제 Undo 상태 ──
+  const [pendingDelete, setPendingDelete] = useState<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  // ── 태스크 완료 애니메이션 상태 ──
+  const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
+  const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
+
   // 도메인 목록 로드
   useEffect(() => {
     api.getDomains().then(setDomains);
@@ -1087,8 +1117,36 @@ export function CalendarPage() {
   const handleToggleTaskComplete = useCallback(
     async (task: Task) => {
       const newStatus = task.status === "done" ? "todo" : "done";
+
+      if (newStatus === "done") {
+        // 즉시 체크마크 표시 (optimistic)
+        setCompletingIds((prev) => new Set(prev).add(task.id));
+      }
+
       await api.updateTask(task.id, { status: newStatus });
-      loadSidebarTasks();
+
+      if (newStatus === "done") {
+        // 1초 후 fade-out 시작
+        setTimeout(() => {
+          setRemovingIds((prev) => new Set(prev).add(task.id));
+          // 0.4초 (transition 시간) 후 목록에서 제거
+          setTimeout(() => {
+            setCompletingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(task.id);
+              return next;
+            });
+            setRemovingIds((prev) => {
+              const next = new Set(prev);
+              next.delete(task.id);
+              return next;
+            });
+            loadSidebarTasks();
+          }, 400);
+        }, 1000);
+      } else {
+        loadSidebarTasks();
+      }
     },
     [loadSidebarTasks],
   );
@@ -1157,14 +1215,44 @@ export function CalendarPage() {
   );
 
   const handleDelete = useCallback(
-    async (id: string) => {
-      await api.deleteTask(id);
-      if (dateRangeRef.current) {
-        loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
-      }
+    (id: string) => {
+      // 이전 pending 삭제가 있으면 즉시 실행
+      setPendingDelete((prev) => {
+        if (prev) {
+          clearTimeout(prev.timer);
+          api.deleteTask(prev.id).then(() => {
+            if (dateRangeRef.current) loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
+          });
+        }
+        return null;
+      });
+
+      // 토스트 표시 + 3초 타이머 시작
+      setToastVisible(true);
+      const timer = setTimeout(() => {
+        api.deleteTask(id).then(() => {
+          if (dateRangeRef.current) loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
+        });
+        setPendingDelete(null);
+        setToastVisible(false);
+      }, 3000);
+
+      setPendingDelete({ id, timer });
     },
     [loadEvents],
   );
+
+  const handleUndoDelete = useCallback(() => {
+    if (pendingDelete) {
+      clearTimeout(pendingDelete.timer);
+      setPendingDelete(null);
+      setToastVisible(false);
+      // 이벤트를 다시 보이게 하기 위해 리로드
+      if (dateRangeRef.current) {
+        loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
+      }
+    }
+  }, [pendingDelete, loadEvents]);
 
   const handleUpdate = useCallback(
     async (id: string, data: Record<string, any>) => {
@@ -1328,8 +1416,14 @@ export function CalendarPage() {
   });
 
   // FullCalendar 이벤트 형식으로 변환
+  const pendingDeleteId = pendingDelete?.id;
   const calendarEvents = filteredEvents.map((e) => {
     const color = eventColor(e);
+    const isPendingDelete = e.id === pendingDeleteId;
+    const classNames = [
+      ...(e.status === "done" ? ["opacity-50", "line-through-event"] : []),
+      ...(isPendingDelete ? ["opacity-30", "pointer-events-none"] : []),
+    ];
     return {
       id: e.id,
       title: e.title,
@@ -1339,9 +1433,9 @@ export function CalendarPage() {
       backgroundColor: color,
       borderColor: color,
       textColor: "#ffffff",
-      editable: true,
+      editable: !isPendingDelete,
       extendedProps: { source: e.source, status: e.status },
-      classNames: e.status === "done" ? ["opacity-50", "line-through-event"] : [],
+      classNames,
     };
   });
 
@@ -1419,6 +1513,8 @@ export function CalendarPage() {
             onDateSelect={handleMiniDateSelect}
             sidebarTasks={sidebarTasks}
             onToggleTaskComplete={handleToggleTaskComplete}
+            completingIds={completingIds}
+            removingIds={removingIds}
           />
         )}
 
@@ -1588,6 +1684,22 @@ export function CalendarPage() {
           onCreate={handleCreate}
         />
       )}
+
+      {/* 삭제 Undo 토스트 */}
+      <div
+        className="fixed bottom-24 left-1/2 z-50 flex items-center gap-3 bg-gray-900 text-white px-4 py-2.5 rounded-full shadow-lg text-sm"
+        style={{
+          transform: toastVisible ? "translate(-50%, 0)" : "translate(-50%, 80px)",
+          opacity: toastVisible ? 1 : 0,
+          transition: "transform 0.3s ease-out, opacity 0.3s ease-out",
+          pointerEvents: toastVisible ? "auto" : "none",
+        }}
+      >
+        <span>삭제됨</span>
+        <button onClick={handleUndoDelete} className="font-semibold text-blue-400">
+          되돌리기
+        </button>
+      </div>
     </div>
   );
 }
