@@ -62,7 +62,7 @@ app.route("/api/kits/hobby", hobbyRoutes);
 app.route("/api/kits/fashion", fashionRoutes);
 
 // 도메인/영역 시드 (새 DB일 때만)
-import { domains as domainsTable, areas as areasTable } from "./db/schema";
+import { domains as domainsTable, areas as areasTable, activityTypes as activityTypesTable } from "./db/schema";
 const domainCount = sqlite.query<{ cnt: number }, []>("SELECT COUNT(*) as cnt FROM domains").get();
 if (!domainCount || domainCount.cnt === 0) {
   const DOMAINS = [
@@ -104,6 +104,25 @@ if (!domainCount || domainCount.cnt === 0) {
     db.insert(areasTable).values({ ...a, createdAt: now, updatedAt: now }).run();
   }
   console.log("🌱 도메인/영역 시드 완료");
+}
+
+// 기본 활동 유형 시드 (없을 때만)
+const atCount = sqlite.query<{ cnt: number }, []>("SELECT COUNT(*) as cnt FROM activity_types").get();
+if (!atCount || atCount.cnt === 0) {
+  const ACTIVITY_TYPES = [
+    { id: "weight-training", name: "웨이트 트레이닝", icon: "💪", isDefault: true },
+    { id: "running", name: "러닝", icon: "🏃", isDefault: true },
+    { id: "swimming", name: "수영", icon: "🏊", isDefault: true },
+    { id: "yoga-pilates", name: "요가/필라테스", icon: "🧘", isDefault: true },
+    { id: "cycling", name: "사이클", icon: "🚴", isDefault: true },
+    { id: "hiking", name: "등산/하이킹", icon: "⛰️", isDefault: true },
+    { id: "other", name: "기타", icon: "🏃", isDefault: true },
+  ];
+  const now = new Date().toISOString();
+  for (const at of ACTIVITY_TYPES) {
+    db.insert(activityTypesTable).values({ ...at, createdAt: now }).run();
+  }
+  console.log("🌱 기본 활동 유형 시드 완료");
 }
 
 // 프로젝트 시드 데이터 삽입 (데이터 없을 때만)

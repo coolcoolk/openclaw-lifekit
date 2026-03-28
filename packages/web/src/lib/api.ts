@@ -119,6 +119,20 @@ export interface AreaXp {
   level: number;
 }
 
+export interface Kit {
+  id: string;
+  name: string;
+  nameEn: string;
+  version: string;
+  areaId: string;
+  description: string;
+  tables: string[];
+  routes: string;
+  installed: boolean;
+  installedAt: string | null;
+  config: Record<string, any> | null;
+}
+
 export interface RelationStats {
   relationType: string | null;
   count: number;
@@ -272,6 +286,23 @@ export const api = {
     fetchJSON<Report>(`/reports/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   generateReport: (type: string, date: string) =>
     fetchJSON<Report>("/reports/generate", { method: "POST", body: JSON.stringify({ type, date }) }),
+
+  // Projects (area-scoped)
+  getAreaProjects: (areaId: string) =>
+    fetchJSON<Project[]>(`/projects?area_id=${areaId}`),
+  getProjectTasks: (projectId: string) =>
+    fetchJSON<Task[]>(`/tasks?project_id=${projectId}`),
+
+  // Kits
+  getKits: () => fetchJSON<Kit[]>("/kits"),
+  getKit: (kitId: string) => fetchJSON<Kit>(`/kits/${kitId}`),
+  installKit: (kitId: string, config?: Record<string, any>) =>
+    fetchJSON<{ ok: boolean; kitId: string; installedAt: string }>(`/kits/${kitId}/install`, {
+      method: "POST",
+      body: JSON.stringify(config ? { config } : {}),
+    }),
+  uninstallKit: (kitId: string) =>
+    fetchJSON<{ ok: boolean }>(`/kits/${kitId}/uninstall`, { method: "DELETE" }),
 
   // Settings
   getSettings: () => fetchJSON<Settings>("/settings"),

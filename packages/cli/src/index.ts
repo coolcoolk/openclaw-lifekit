@@ -5,6 +5,7 @@ import { connectCommand } from "./commands/connect";
 import { startCommand } from "./commands/start";
 import { statusCommand } from "./commands/status";
 import { versionCommand } from "./commands/version";
+import { kitCommand } from "./commands/kit";
 
 const command = process.argv[2];
 
@@ -30,6 +31,12 @@ switch (command) {
   case "version":
     versionCommand();
     break;
+  case "kit": {
+    const subcommand = process.argv[3];
+    const kitId = process.argv[4];
+    await kitCommand(subcommand, kitId);
+    break;
+  }
   default:
     console.log(`
   🧰 LifeKit CLI v0.1.0
@@ -41,6 +48,7 @@ switch (command) {
     connect   Connect external services (google, tailscale)
     start     Start server + web dashboard
     status    Show server/web status and DB path
+    kit       Manage Kits (list, install, uninstall, update)
     version   Show version
     `);
     break;

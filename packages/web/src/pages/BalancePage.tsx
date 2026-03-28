@@ -3,10 +3,12 @@ import {
   api,
   type Domain,
   type Area,
+  type Project,
   type SatisfactionRecord,
   type BalanceData,
   type Relation,
   type AreaXp,
+  type Kit,
 } from "@/lib/api";
 import {
   LineChart,
@@ -25,7 +27,7 @@ import {
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { RelationsKit } from "@/components/RelationsKit";
-import { X, Send, Plus, Pencil, Trash2, Users } from "lucide-react";
+import { X, Send, Plus, Pencil, Trash2, Users, Package, PackageCheck, ChevronRight } from "lucide-react";
 
 // 만족도 레벨 라벨
 function satisfactionLabel(score: number | null): string {
@@ -127,12 +129,14 @@ function AreaRow({
   domainColor,
   isUnknown,
   onSetup,
+  onAreaClick,
   xpData,
 }: {
   area: Area;
   domainColor: string;
   isUnknown: boolean;
   onSetup?: () => void;
+  onAreaClick?: (area: Area) => void;
   xpData?: AreaXp;
 }) {
   const pct = (area.satisfaction || 0) * 10;
@@ -145,13 +149,16 @@ function AreaRow({
   const xpForNext = 100;
 
   return (
-    <div className={`${isUnknown ? "opacity-50 hover:opacity-80 transition-opacity" : ""}`}>
+    <div
+      className={`${isUnknown ? "opacity-50 hover:opacity-80 transition-opacity" : ""} ${onAreaClick ? "cursor-pointer hover:bg-muted/50 rounded-md px-1 -mx-1 transition-colors" : ""}`}
+      onClick={() => onAreaClick?.(area)}
+    >
       <div className="flex items-center gap-2">
         <span className="text-sm w-5 text-center">{area.icon}</span>
         <span className="text-sm flex-1 truncate">{area.name}</span>
         {isUnknown && onSetup ? (
           <button
-            onClick={onSetup}
+            onClick={(e) => { e.stopPropagation(); onSetup?.(); }}
             className="text-xs px-2 py-0.5 rounded-md bg-purple-600 hover:bg-purple-700 text-white transition-colors shrink-0"
           >
             + 시작하기
@@ -170,6 +177,7 @@ function AreaRow({
             >
               {area.satisfaction ?? "—"}/10
             </span>
+            {onAreaClick && <ChevronRight size={14} className="text-muted-foreground shrink-0" />}
           </>
         )}
       </div>
@@ -296,6 +304,408 @@ const DEFAULT_ONBOARDING_MESSAGE = "온보딩을 시작할게요!\n\n이 영역�
 
 function getOnboardingFirstMessage(areaId: string): string {
   return ONBOARDING_FIRST_MESSAGES[areaId] ?? DEFAULT_ONBOARDING_MESSAGE;
+}
+
+// ── 프로젝트 아코디언 아이템 ──
+function ProjectAccordion({
+  project,
+}: {
+  project: Project;
+}) {
+  const [open, setOpen] = useState(false);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [completing, setCompleting] = useState<string | null>(null);
+
+  const handleToggle = async () => {
+    if (!open && tasks.length === 0) {
+      setLoadingTasks(true);
+      try {
+        const result = await api.getProjectTasks(project.id);
+        setTasks(result);
+      } finally {
+        setLoadingTasks(false);
+      }
+    }
+    setOpen((v) => !v);
+  };
+
+  const handleTaskToggle = async (task: any) => {
+    setCompleting(task.id);
+    try {
+      const newStatus = task.status === "done" ? "todo" : "done";
+      const updated = await api.updateTask(task.id, {
+        status: newStatus,
+        completedAt: newStatus === "done" ? new Date().toISOString() : null,
+      });
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, ...updated } : t));
+      // XP 부여 (태스크 완료 시 +10, 루틴 +5)
+      if (newStatus === "done") {
+        await api.addAreaXp(project.areaId!, {
+          amount: task.isRoutine ? 5 : 10,
+          reason: `태스크 완료: ${task.title}`,
+        });
+      }
+    } finally {
+      setCompleting(null);
+    }
+  };
+
+  const doneTasks = tasks.filter((t) => t.status === "done").length;
+  const totalTasks = tasks.length;
+  const progressPct = totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0;
+
+  const statusColor: Record<string, string> = {
+    active: "text-blue-600 bg-blue-50",
+    paused: "text-yellow-600 bg-yellow-50",
+    completed: "text-green-600 bg-green-50",
+    archived: "text-gray-500 bg-gray-50",
+  };
+  const statusLabel: Record<string, string> = {
+    active: "진행중",
+    paused: "대기",
+    completed: "완료",
+    archived: "보관",
+  };
+
+  return (
+    <div className="border border-border rounded-lg overflow-hidden">
+      {/* 프로젝트 헤더 */}
+      <button
+        onClick={handleToggle}
+        className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors text-left"
+      >
+        <span className="text-muted-foreground shrink-0">
+          {open ? "▾" : "▸"}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium truncate">{project.name}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0 ${statusColor[project.status] ?? statusColor.active}`}>
+              {statusLabel[project.status] ?? project.status}
+            </span>
+          </div>
+          {/* 진행률 바 (태스크 로드 후) */}
+          {open && totalTasks > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {doneTasks}/{totalTasks}
+              </span>
+            </div>
+          )}
+          {project.targetDate && (
+            <div className="text-[10px] text-muted-foreground mt-0.5">
+              🎯 {project.targetDate}
+            </div>
+          )}
+        </div>
+      </button>
+
+      {/* 확장된 태스크 목록 */}
+      {open && (
+        <div className="border-t border-border bg-muted/20 px-3 py-2 space-y-1.5">
+          {loadingTasks ? (
+            <div className="text-xs text-muted-foreground py-2">로딩 중...</div>
+          ) : tasks.length === 0 ? (
+            <div className="text-xs text-muted-foreground py-2 text-center">
+              아직 태스크가 없어요
+            </div>
+          ) : (
+            tasks.slice(0, 10).map((task) => (
+              <button
+                key={task.id}
+                onClick={() => handleTaskToggle(task)}
+                disabled={completing === task.id}
+                className="w-full flex items-center gap-2.5 text-left hover:bg-muted rounded-md px-1.5 py-1 transition-colors disabled:opacity-50"
+              >
+                <div className={`w-4 h-4 rounded border-2 shrink-0 flex items-center justify-center transition-colors ${
+                  task.status === "done"
+                    ? "bg-primary border-primary"
+                    : "border-border"
+                }`}>
+                  {task.status === "done" && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
+                <span className={`text-xs flex-1 ${task.status === "done" ? "line-through text-muted-foreground" : ""}`}>
+                  {task.title}
+                </span>
+                {task.isRoutine && (
+                  <span className="text-[10px] text-purple-500 shrink-0">반복</span>
+                )}
+              </button>
+            ))
+          )}
+          {tasks.length > 10 && (
+            <div className="text-xs text-muted-foreground text-center py-1">
+              +{tasks.length - 10}개 더 있음
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 영역 상세 드로어 ──
+function AreaDetailDrawer({
+  area,
+  domain,
+  xpData,
+  onClose,
+  onStartOnboarding,
+}: {
+  area: Area;
+  domain: Domain;
+  xpData?: AreaXp;
+  onClose: () => void;
+  onStartOnboarding: (area: Area) => void;
+}) {
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [installing, setInstalling] = useState<string | null>(null);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectDate, setNewProjectDate] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    Promise.all([
+      api.getKits().then((all) => all.filter((k) => k.areaId === area.id)),
+      api.getAreaProjects(area.id),
+    ]).then(([filteredKits, areaProjects]) => {
+      setKits(filteredKits);
+      setProjects(areaProjects);
+    }).finally(() => setLoading(false));
+  }, [area.id]);
+
+  const handleCreateProject = async () => {
+    if (!newProjectName.trim()) return;
+    setCreating(true);
+    try {
+      const created = await api.createProject({
+        areaId: area.id,
+        name: newProjectName.trim(),
+        targetDate: newProjectDate || null,
+        status: "active",
+      });
+      setProjects((prev) => [...prev, created]);
+      setNewProjectName("");
+      setNewProjectDate("");
+      setShowCreateProject(false);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleInstall = async (kit: Kit) => {
+    setInstalling(kit.id);
+    try {
+      await api.installKit(kit.id);
+      setKits((prev) => prev.map((k) => k.id === kit.id ? { ...k, installed: true, installedAt: new Date().toISOString() } : k));
+    } catch {
+      // ignore
+    } finally {
+      setInstalling(null);
+    }
+  };
+
+  const handleUninstall = async (kit: Kit) => {
+    if (!confirm(`"${kit.name}" Kit을 제거할까요?`)) return;
+    setInstalling(kit.id);
+    try {
+      await api.uninstallKit(kit.id);
+      setKits((prev) => prev.map((k) => k.id === kit.id ? { ...k, installed: false, installedAt: null } : k));
+    } catch {
+      // ignore
+    } finally {
+      setInstalling(null);
+    }
+  };
+
+  const xp = xpData?.xp ?? 0;
+  const level = xpData?.level ?? 1;
+  const xpInLevel = xp % 100;
+  const isUnknown = area.satisfaction === null;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 z-40 transition-opacity" onClick={onClose} />
+      <div className="fixed inset-0 md:left-auto md:w-full md:max-w-md bg-background md:border-l md:border-border z-50 flex flex-col animate-in slide-in-from-right duration-300">
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-4 h-14 border-b border-border shrink-0">
+          <div className="flex items-center gap-2">
+            <span>{area.icon}</span>
+            <h2 className="font-semibold text-sm">{area.name}</h2>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          {/* 만족도 + XP */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">만족도</span>
+              {isUnknown ? (
+                <button
+                  onClick={() => { onClose(); onStartOnboarding(area); }}
+                  className="text-xs px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+                >
+                  온보딩 시작
+                </button>
+              ) : (
+                <span className="font-semibold text-sm" style={{ color: satisfactionColor(area.satisfaction) }}>
+                  {area.satisfaction}/10 · {satisfactionLabel(area.satisfaction)}
+                </span>
+              )}
+            </div>
+            {!isUnknown && (
+              <>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${(area.satisfaction ?? 0) * 10}%`, backgroundColor: domain.color }}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-purple-600">Lv.{level}</span>
+                  <div className="flex-1 h-1.5 bg-purple-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-purple-500 rounded-full transition-all duration-500"
+                      style={{ width: `${(xpInLevel / 100) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs text-muted-foreground">{xpInLevel}/100 XP</span>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* 프로젝트 섹션 */}
+          <div>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  🎯 프로젝트 {projects.length > 0 && `(${projects.length})`}
+                </h3>
+                <button
+                  onClick={() => setShowCreateProject((v) => !v)}
+                  className="text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity flex items-center gap-1"
+                >
+                  <Plus size={12} />
+                  새 목표
+                </button>
+              </div>
+
+              {/* 프로젝트 생성 폼 */}
+              {showCreateProject && (
+                <div className="border border-border rounded-lg p-3 mb-3 space-y-2 bg-muted/30">
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleCreateProject()}
+                    placeholder="목표 이름"
+                    className="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                    autoFocus
+                  />
+                  <input
+                    type="date"
+                    value={newProjectDate}
+                    onChange={(e) => setNewProjectDate(e.target.value)}
+                    className="w-full px-2.5 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => { setShowCreateProject(false); setNewProjectName(""); setNewProjectDate(""); }}
+                      className="text-xs px-2.5 py-1.5 rounded-md hover:bg-muted transition-colors"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={handleCreateProject}
+                      disabled={!newProjectName.trim() || creating}
+                      className="text-xs px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    >
+                      {creating ? "..." : "만들기"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {loading ? (
+                <div className="text-xs text-muted-foreground">로딩 중...</div>
+              ) : projects.length === 0 ? (
+                <div className="border border-dashed border-border rounded-lg p-5 text-center">
+                  <p className="text-xs text-muted-foreground">첫 목표를 세워보세요</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {projects.map((project) => (
+                    <ProjectAccordion key={project.id} project={project} />
+                  ))}
+                </div>
+              )}
+          </div>
+
+          {/* Kit 목록 */}
+          <div>
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">📦 도구 (Kits)</h3>
+            {loading ? (
+              <div className="text-xs text-muted-foreground">로딩 중...</div>
+            ) : kits.length === 0 ? (
+              <div className="border border-dashed border-border rounded-lg p-5 text-center text-xs text-muted-foreground">
+                이 영역에 사용 가능한 Kit이 없습니다
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {kits.map((kit) => (
+                  <div key={kit.id} className="border border-border rounded-lg p-3.5 flex items-center gap-3">
+                    <div className={`shrink-0 p-1.5 rounded-md ${kit.installed ? "bg-green-100" : "bg-muted"}`}>
+                      {kit.installed
+                        ? <PackageCheck size={16} className="text-green-600" />
+                        : <Package size={16} className="text-muted-foreground" />
+                      }
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{kit.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{kit.description}</div>
+                      {kit.installed && kit.installedAt && (
+                        <div className="text-[10px] text-green-600 mt-0.5">
+                          설치됨 · {new Date(kit.installedAt).toLocaleDateString("ko-KR")}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => kit.installed ? handleUninstall(kit) : handleInstall(kit)}
+                      disabled={installing === kit.id}
+                      className={`shrink-0 text-xs px-2.5 py-1.5 rounded-md transition-colors disabled:opacity-50 ${
+                        kit.installed
+                          ? "bg-muted hover:bg-destructive/10 hover:text-destructive text-muted-foreground"
+                          : "bg-primary text-primary-foreground hover:opacity-90"
+                      }`}
+                    >
+                      {installing === kit.id ? "..." : kit.installed ? "제거" : "설치"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
 }
 
 // ── 온보딩 채팅 드로어 ──
@@ -442,6 +852,7 @@ function DomainCard({
   areas,
   history,
   onAreaSetup,
+  onAreaClick,
   onDomainClick,
   xpMap,
 }: {
@@ -449,6 +860,7 @@ function DomainCard({
   areas: Area[];
   history: SatisfactionRecord[];
   onAreaSetup: (area: Area) => void;
+  onAreaClick?: (area: Area, domain: Domain) => void;
   onDomainClick?: (domain: Domain) => void;
   xpMap: Record<string, AreaXp>;
 }) {
@@ -501,6 +913,7 @@ function DomainCard({
             domainColor={domain.color}
             isUnknown={area.satisfaction === null}
             onSetup={area.satisfaction === null ? () => onAreaSetup(area) : undefined}
+            onAreaClick={onAreaClick ? (a) => onAreaClick(a, domain) : undefined}
             xpData={xpMap[area.id]}
           />
         ))}
@@ -802,6 +1215,7 @@ export function BalancePage() {
   const [xpMap, setXpMap] = useState<Record<string, AreaXp>>({});
   const [loading, setLoading] = useState(true);
   const [onboardingArea, setOnboardingArea] = useState<Area | null>(null);
+  const [detailArea, setDetailArea] = useState<{ area: Area; domain: Domain } | null>(null);
   const [relationModal, setRelationModal] = useState<{ open: boolean; relation: Relation | null }>({ open: false, relation: null });
   const [showRelationsKit, setShowRelationsKit] = useState(false);
 
@@ -907,6 +1321,7 @@ export function BalancePage() {
             areas={areas}
             history={history}
             onAreaSetup={setOnboardingArea}
+            onAreaClick={(area, d) => setDetailArea({ area, domain: d })}
             onDomainClick={domain.id === "relationship" ? () => setShowRelationsKit(true) : undefined}
             xpMap={xpMap}
           />
@@ -935,6 +1350,20 @@ export function BalancePage() {
           relation={relationModal.relation}
           onClose={() => setRelationModal({ open: false, relation: null })}
           onSave={handleRelationSave}
+        />
+      )}
+
+      {/* 영역 상세 드로어 */}
+      {detailArea && (
+        <AreaDetailDrawer
+          area={detailArea.area}
+          domain={detailArea.domain}
+          xpData={xpMap[detailArea.area.id]}
+          onClose={() => setDetailArea(null)}
+          onStartOnboarding={(area) => {
+            setDetailArea(null);
+            setOnboardingArea(area);
+          }}
         />
       )}
 

@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { domains, areas } from "./schema";
+import { domains, areas, activityTypes } from "./schema";
 
 const sqlite = new Database("data/lifekit.db");
 const db = drizzle(sqlite);
@@ -61,6 +61,21 @@ async function seed() {
     db.insert(areas).values(area).onConflictDoNothing().run();
   }
   console.log(`  ✅ ${AREAS.length} areas`);
+
+  // Insert default activity types
+  const ACTIVITY_TYPES = [
+    { id: "weight-training", name: "웨이트 트레이닝", icon: "💪", isDefault: true },
+    { id: "running", name: "러닝", icon: "🏃", isDefault: true },
+    { id: "swimming", name: "수영", icon: "🏊", isDefault: true },
+    { id: "yoga-pilates", name: "요가/필라테스", icon: "🧘", isDefault: true },
+    { id: "cycling", name: "사이클", icon: "🚴", isDefault: true },
+    { id: "hiking", name: "등산/하이킹", icon: "⛰️", isDefault: true },
+    { id: "other", name: "기타", icon: "🏃", isDefault: true },
+  ];
+  for (const at of ACTIVITY_TYPES) {
+    db.insert(activityTypes).values(at).onConflictDoNothing().run();
+  }
+  console.log(`  ✅ ${ACTIVITY_TYPES.length} activity types`);
 
   console.log("🎉 Seed complete!");
 }
