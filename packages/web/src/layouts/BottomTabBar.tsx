@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { BarChart3, Calendar, Target, Radar, Settings } from "lucide-react";
+import { FolderKanban, Calendar, Radar, Settings } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 interface BottomTabBarProps {
@@ -12,8 +12,7 @@ export function BottomTabBar({ activePage, onNavigate }: BottomTabBarProps) {
 
   const tabs = [
     { icon: <Calendar size={22} />, label: t("nav.calendar"), id: "calendar" },
-    { icon: <BarChart3 size={22} />, label: t("nav.reports"), id: "reports" },
-    { icon: <Target size={22} />, label: t("nav.projects"), id: "projects" },
+    { icon: <FolderKanban size={22} />, label: t("nav.projects"), id: "projects" },
     { icon: <Radar size={22} />, label: t("nav.balance"), id: "balance" },
     { icon: <Settings size={22} />, label: t("nav.settings"), id: "settings" },
   ];

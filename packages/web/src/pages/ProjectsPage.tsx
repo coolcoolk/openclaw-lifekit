@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { api, type ProjectWithTasks, type Task, type Domain } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { api, type ProjectWithTasks, type Task, type Domain, type Kit } from "@/lib/api";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { getKitDashboard } from "@/components/kit-dashboards";
 import {
   Plus,
   ChevronDown,
@@ -13,6 +15,9 @@ import {
   Calendar,
   AlignLeft,
   Clock,
+  Package,
+  PackageCheck,
+  ArrowLeft,
 } from "lucide-react";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
@@ -34,7 +39,6 @@ function isRoutineProject(p: ProjectWithTasks) {
   return p.totalTasks > 0 && p.routineTasks / p.totalTasks >= 0.7;
 }
 
-// 정렬 우선순위
 function sortPriority(p: ProjectWithTasks): number {
   const routine = isRoutineProject(p);
   if (p.status === "active" && !routine) return 0;
@@ -48,11 +52,16 @@ function sortPriority(p: ProjectWithTasks): number {
 export function ProjectsPage() {
   const [projects, setProjects] = useState<ProjectWithTasks[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCompleted, setShowCompleted] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
+  const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
+  const [showBrowseKits, setShowBrowseKits] = useState(false);
+  const [installing, setInstalling] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -60,25 +69,26 @@ export function ProjectsPage() {
 
   async function loadData() {
     try {
-      const [p, d] = await Promise.all([
+      const [p, d, k] = await Promise.all([
         api.getProjectsWithTasks(),
         api.getDomains(),
+        api.getKits(),
       ]);
       setProjects(p);
       setDomains(d);
+      setKits(k);
     } finally {
       setLoading(false);
     }
   }
 
   async function handleCreate(data: { name: string; description: string; domainAreaId: string }) {
-    const created = await api.createProject({
+    await api.createProject({
       name: data.name,
       description: data.description || null,
       areaId: data.domainAreaId || null,
     } as any);
     setShowCreate(false);
-    // reload to get full data with tasks
     const updated = await api.getProjectsWithTasks();
     setProjects(updated);
   }
@@ -87,16 +97,31 @@ export function ProjectsPage() {
     await api.updateProject(id, data as any);
     const updated = await api.getProjectsWithTasks();
     setProjects(updated);
-    // Refresh selectedProject if still open
     if (selectedProject?.id === id) {
       const refreshed = updated.find((p) => p.id === id);
       if (refreshed) setSelectedProject(refreshed);
     }
   }
 
+  async function handleInstallKit(kit: Kit) {
+    setInstalling(kit.id);
+    try {
+      await api.installKit(kit.id);
+      setKits((prev) =>
+        prev.map((k) =>
+          k.id === kit.id ? { ...k, installed: true, installedAt: new Date().toISOString() } : k
+        )
+      );
+    } finally {
+      setInstalling(null);
+    }
+  }
+
+  const installedKits = kits.filter((k) => k.installed);
+  const availableKits = kits.filter((k) => !k.installed);
+
   // 도메인별 그룹핑
   const grouped = new Map<string, { domain: { id: string; name: string; icon: string; color: string }; projects: ProjectWithTasks[] }>();
-
   for (const p of projects) {
     const domainId = p.domainId || "default";
     if (!grouped.has(domainId)) {
@@ -112,8 +137,6 @@ export function ProjectsPage() {
     }
     grouped.get(domainId)!.projects.push(p);
   }
-
-  // 각 그룹 내 정렬
   for (const group of grouped.values()) {
     group.projects.sort((a, b) => sortPriority(a) - sortPriority(b));
   }
@@ -126,11 +149,122 @@ export function ProjectsPage() {
     );
   }
 
+  // Kit dashboard view
+  if (selectedKit) {
+    const Dashboard = getKitDashboard(selectedKit.id);
+    return (
+      <div className="max-w-3xl mx-auto py-6 px-3 md:py-8 md:px-4">
+        <button
+          onClick={() => setSelectedKit(null)}
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+        >
+          <ArrowLeft size={16} />
+          돌아가기
+        </button>
+        <div className="flex items-center gap-2 mb-6">
+          <PackageCheck size={20} className="text-green-600" />
+          <h1 className="text-xl md:text-2xl font-bold">{selectedKit.name}</h1>
+        </div>
+        {Dashboard ? (
+          <Dashboard />
+        ) : (
+          <div className="border border-dashed border-border rounded-lg p-8 text-center">
+            <p className="text-sm text-muted-foreground">이 Kit의 대시보드가 아직 준비되지 않았어요</p>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto py-6 px-3 md:py-8 md:px-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl md:text-2xl font-bold">🎯 프로젝트</h1>
+      {/* ── 활성화된 Kit 섹션 ── */}
+      <div className="mb-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
+          📦 활성화된 Kit
+        </h2>
+        {installedKits.length === 0 ? (
+          <div className="border border-dashed border-border rounded-lg p-6 text-center">
+            <p className="text-sm text-muted-foreground mb-3">아직 활성화된 Kit이 없어요</p>
+            <button
+              onClick={() => setShowBrowseKits(true)}
+              className="text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              Kit 둘러보기
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {installedKits.map((kit) => (
+              <div
+                key={kit.id}
+                onClick={() => setSelectedKit(kit)}
+                className="border border-border rounded-lg p-4 hover:bg-muted/30 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 p-1.5 rounded-md bg-green-100">
+                    <PackageCheck size={16} className="text-green-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium">{kit.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{kit.description}</div>
+                  </div>
+                  <ChevronRight size={16} className="text-muted-foreground shrink-0" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Kit 브라우징 섹션 (접기/펼치기) ── */}
+      {availableKits.length > 0 && (
+        <div className="mb-8">
+          <button
+            onClick={() => setShowBrowseKits(!showBrowseKits)}
+            className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors mb-3"
+          >
+            {showBrowseKits ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            🔍 Kit 둘러보기 ({availableKits.length})
+          </button>
+          {showBrowseKits && (
+            <div className="space-y-2">
+              {availableKits.map((kit) => (
+                <div
+                  key={kit.id}
+                  className="border border-border rounded-lg p-4"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="shrink-0 p-1.5 rounded-md bg-muted">
+                      <Package size={16} className="text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium">{kit.name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{kit.description}</div>
+                    </div>
+                    <button
+                      onClick={() => handleInstallKit(kit)}
+                      disabled={installing === kit.id}
+                      className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+                    >
+                      {installing === kit.id ? "..." : "활성화"}
+                    </button>
+                  </div>
+                  {kit.guide && (
+                    <p className="text-[11px] text-muted-foreground/70 mt-2 ml-9 leading-relaxed whitespace-pre-line">
+                      {kit.guide}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 프로젝트 섹션 ── */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl md:text-2xl font-bold">🎯 프로젝트</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
@@ -150,7 +284,6 @@ export function ProjectsPage() {
 
         return (
           <div key={domain.id} className="mb-8">
-            {/* Domain Header */}
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">{domain.icon}</span>
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -169,18 +302,22 @@ export function ProjectsPage() {
               )}
             </div>
 
-            {/* Project Cards */}
             <div className="space-y-2">
               {visibleProjects.map((p) => (
                 <ProjectCard
                   key={p.id}
                   project={p}
                   domainColor={domain.color}
-                  onClick={() => setSelectedProject(p)}
+                  onClick={() => {
+                    if (isMobile) {
+                      setSelectedProject(p);
+                    } else {
+                      navigate(`/projects/${p.id}`);
+                    }
+                  }}
                 />
               ))}
 
-              {/* Completed toggle */}
               {completedProjects.length > 0 && (
                 <div>
                   <button
@@ -197,7 +334,13 @@ export function ProjectsPage() {
                           key={p.id}
                           project={p}
                           domainColor={domain.color}
-                          onClick={() => setSelectedProject(p)}
+                          onClick={() => {
+                            if (isMobile) {
+                              setSelectedProject(p);
+                            } else {
+                              navigate(`/projects/${p.id}`);
+                            }
+                          }}
                         />
                       ))}
                     </div>
@@ -209,7 +352,6 @@ export function ProjectsPage() {
         );
       })}
 
-      {/* Empty State */}
       {projects.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg mb-2">🎯</p>
@@ -226,11 +368,11 @@ export function ProjectsPage() {
         />
       )}
 
-      {/* Project Detail Panel */}
-      {selectedProject && (
+      {/* Mobile Project Detail Panel (모바일 전용) */}
+      {selectedProject && isMobile && (
         <ProjectDetailPanel
           project={selectedProject}
-          isMobile={isMobile}
+          isMobile={true}
           onClose={() => setSelectedProject(null)}
           onUpdate={handleProjectUpdate}
           onTasksChanged={loadData}
@@ -279,7 +421,6 @@ function ProjectCard({
             </span>
           </div>
 
-          {/* Progress bar */}
           {p.totalTasks > 0 && (
             <div className="mt-2">
               <div className="flex items-center gap-2">
@@ -299,7 +440,6 @@ function ProjectCard({
             </div>
           )}
 
-          {/* Routine: 오늘 할 태스크 */}
           {routine && p.todayTask && (
             <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
               <RefreshCw size={10} />
@@ -307,7 +447,6 @@ function ProjectCard({
             </div>
           )}
 
-          {/* 남은 태스크 */}
           {!routine && remaining > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
               {remaining}개 태스크 남음
@@ -319,7 +458,7 @@ function ProjectCard({
   );
 }
 
-// ── MobileBottomSheet (CalendarPage와 동일 패턴) ──
+// ── MobileBottomSheet ──
 function MobileBottomSheet({
   open,
   onClose,
@@ -344,7 +483,6 @@ function MobileBottomSheet({
     if (!sheet) return;
     const scrollable = sheet.querySelector("[data-bottom-sheet-body]");
     if (scrollable && scrollable.scrollTop > 0) return;
-
     dragRef.current.startY = e.touches[0].clientY;
     dragRef.current.currentY = e.touches[0].clientY;
     dragRef.current.dragging = true;
@@ -364,7 +502,6 @@ function MobileBottomSheet({
     if (!dragRef.current.dragging || !sheetRef.current) return;
     const deltaY = dragRef.current.currentY - dragRef.current.startY;
     dragRef.current.dragging = false;
-
     if (deltaY > 100) {
       sheetRef.current.style.transform = "translateY(100%)";
       setTimeout(onClose, 200);
@@ -405,7 +542,7 @@ function MobileBottomSheet({
   );
 }
 
-// ── 프로젝트 상세 콘텐츠 (PC/모바일 공용) ──
+// ── 프로젝트 상세 콘텐츠 ──
 function ProjectDetailContent({
   project,
   onClose,
@@ -430,7 +567,6 @@ function ProjectDetailContent({
   const domainColor = project.domainColor || DOMAIN_COLORS["default"];
   const progress = project.totalTasks > 0 ? (project.doneTasks / project.totalTasks) * 100 : 0;
 
-  // Load tasks for this project
   useEffect(() => {
     loadTasks();
   }, [project.id]);
@@ -445,7 +581,6 @@ function ProjectDetailContent({
     }
   }
 
-  // Reset state when project changes
   useEffect(() => {
     setName(project.name);
     setDescription(project.description || "");
@@ -513,7 +648,6 @@ function ProjectDetailContent({
 
   return (
     <>
-      {/* 헤더 */}
       <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
         <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
           <span
@@ -536,9 +670,7 @@ function ProjectDetailContent({
         </button>
       </div>
 
-      {/* 본문 */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5" data-bottom-sheet-body>
-        {/* 도메인/영역 태그 */}
         {project.domainName && (
           <div className="flex items-center gap-2">
             <span className="text-sm">{project.domainIcon || "📂"}</span>
@@ -554,7 +686,6 @@ function ProjectDetailContent({
           </div>
         )}
 
-        {/* 상태 뱃지 */}
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground w-16 shrink-0">상태</span>
           <div className="flex gap-1.5">
@@ -578,7 +709,6 @@ function ProjectDetailContent({
           </div>
         </div>
 
-        {/* 설명 */}
         <div className="flex items-start gap-2">
           <AlignLeft size={14} className="mt-2 shrink-0 text-muted-foreground" />
           <textarea
@@ -591,7 +721,6 @@ function ProjectDetailContent({
           />
         </div>
 
-        {/* 목표 완료일 */}
         <div className="flex items-center gap-2">
           <Calendar size={14} className="shrink-0 text-muted-foreground" />
           <input
@@ -606,7 +735,6 @@ function ProjectDetailContent({
           />
         </div>
 
-        {/* 진행률 바 */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>진행률</span>
@@ -623,10 +751,8 @@ function ProjectDetailContent({
           </div>
         </div>
 
-        {/* 구분선 */}
         <div className="border-t border-border" />
 
-        {/* 태스크 목록 */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">태스크</h3>
@@ -643,7 +769,6 @@ function ProjectDetailContent({
             <p className="text-xs text-muted-foreground py-4 text-center">로딩 중...</p>
           ) : (
             <div className="space-y-1">
-              {/* 인라인 새 태스크 입력 */}
               {showNewTask && (
                 <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30">
                   <div className="w-4 h-4 rounded border border-border shrink-0" />
@@ -664,12 +789,10 @@ function ProjectDetailContent({
                 </div>
               )}
 
-              {/* 진행 중 태스크 */}
               {pendingTasks.map((task) => (
                 <TaskRow key={task.id} task={task} onToggle={() => handleToggleTask(task)} />
               ))}
 
-              {/* 완료된 태스크 */}
               {doneTasks.length > 0 && (
                 <>
                   <p className="text-[10px] text-muted-foreground mt-3 mb-1 uppercase tracking-wide">
@@ -681,7 +804,6 @@ function ProjectDetailContent({
                 </>
               )}
 
-              {/* 빈 상태 */}
               {tasks.length === 0 && !showNewTask && (
                 <p className="text-xs text-muted-foreground text-center py-4">
                   아직 태스크가 없어요
@@ -695,7 +817,7 @@ function ProjectDetailContent({
   );
 }
 
-// ── 태스크 행 ──
+// ── 태스크 행 (모바일용 - 상세 정보 포함) ──
 function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
   const isDone = task.status === "done";
   const priorityBadge = PRIORITY_BADGE[task.priority];
@@ -703,11 +825,10 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/30 transition-colors group",
+        "flex items-center gap-2 px-2 py-2 rounded-md hover:bg-muted/30 transition-colors group",
         isDone && "opacity-50"
       )}
     >
-      {/* 체크박스 */}
       <button
         onClick={onToggle}
         className={cn(
@@ -720,35 +841,41 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
         {isDone && <Check size={10} />}
       </button>
 
-      {/* 제목 */}
-      <span
-        className={cn(
-          "flex-1 text-sm truncate",
-          isDone && "line-through text-muted-foreground"
-        )}
-      >
-        {task.title}
-      </span>
-
-      {/* 우선순위 뱃지 */}
-      {priorityBadge && task.priority !== "P3" && (
-        <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
-          {priorityBadge.label}
+      <div className="flex-1 min-w-0">
+        <span
+          className={cn(
+            "text-sm truncate block",
+            isDone && "line-through text-muted-foreground"
+          )}
+        >
+          {task.title}
         </span>
-      )}
-
-      {/* 예상시간 */}
-      {task.estimatedMinutes && (
-        <span className="shrink-0 flex items-center gap-0.5 text-[10px] text-muted-foreground">
-          <Clock size={10} />
-          {task.estimatedMinutes}m
-        </span>
-      )}
+        {/* 모바일 상세 정보 행 */}
+        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+          {priorityBadge && (
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
+              {priorityBadge.label}
+            </span>
+          )}
+          {task.estimatedMinutes && (
+            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+              <Clock size={9} />
+              {task.estimatedMinutes}분
+            </span>
+          )}
+          {task.dueDate && (
+            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
+              <Calendar size={9} />
+              {task.dueDate.slice(5)}
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// ── 프로젝트 상세 패널 (PC: 우측 슬라이드인 / 모바일: Bottom Sheet) ──
+// ── 프로젝트 상세 패널 (모바일 전용) ──
 function ProjectDetailPanel({
   project,
   isMobile,
@@ -771,24 +898,11 @@ function ProjectDetailPanel({
     />
   );
 
-  if (isMobile) {
-    return (
-      <MobileBottomSheet open={true} onClose={onClose}>
-        {detailContent}
-      </MobileBottomSheet>
-    );
-  }
-
+  // 모바일에서만 bottom sheet으로 표시
   return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
-      />
-      <div className="fixed top-0 right-0 h-full w-full max-w-sm bg-background border-l border-border z-50 flex flex-col shadow-xl animate-in slide-in-from-right duration-200">
-        {detailContent}
-      </div>
-    </>
+    <MobileBottomSheet open={true} onClose={onClose}>
+      {detailContent}
+    </MobileBottomSheet>
   );
 }
 

@@ -6,5 +6,6 @@
   "areaId": "finance-spending",
   "description": "수입/지출과 고정비를 관리합니다",
   "tables": ["expenses", "fixed_expenses"],
-  "routes": "/api/kits/finance"
+  "routes": "/api/kits/finance",
+  "guide": "영수증 사진이나 지출 내역을 아그에게 보내면 고정비/일반비용/홧김비용/멍청비용으로 분류해서 기록해요. 월말에 지출 패턴을 분석해서 알려드려요."
 }

@@ -131,6 +131,7 @@ export interface Kit {
   installed: boolean;
   installedAt: string | null;
   config: Record<string, any> | null;
+  guide?: string;
 }
 
 export interface RelationStats {
@@ -254,8 +255,8 @@ export const api = {
     fetchJSON<BalanceData[]>(`/tasks/balance?days=${days}`),
 
   // Onboarding
-  onboardingChat: (data: { areaId: string; message: string; history: { role: string; content: string }[] }) =>
-    fetchJSON<{ message: string; isComplete: boolean; data: Record<string, any> }>("/onboarding/chat", {
+  onboardingChat: (data: { areaId: string; message: string; history: { role: string; content: string }[]; sessionId?: string }) =>
+    fetchJSON<{ message: string; isComplete: boolean; data: Record<string, any>; sessionId: string }>("/onboarding/chat", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -303,6 +304,71 @@ export const api = {
     }),
   uninstallKit: (kitId: string) =>
     fetchJSON<{ ok: boolean }>(`/kits/${kitId}/uninstall`, { method: "DELETE" }),
+
+  // Kit Data APIs
+  // Diet
+  getDietLogs: (date?: string) =>
+    fetchJSON<any[]>(date ? `/kits/diet/logs?date=${date}` : "/kits/diet/logs"),
+  getDietSummary: (date: string) =>
+    fetchJSON<any>(`/kits/diet/summary?date=${date}`),
+
+  // Exercise
+  getExerciseLogs: (date?: string) =>
+    fetchJSON<any[]>(date ? `/kits/exercise/logs?date=${date}` : "/kits/exercise/logs"),
+  getExerciseWeeklyStats: () =>
+    fetchJSON<any[]>("/kits/exercise/stats/weekly"),
+
+  // Finance
+  getFinanceExpenses: (params?: { date?: string; type?: string }) => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    return fetchJSON<any[]>(`/kits/finance/expenses${query ? `?${query}` : ""}`);
+  },
+  getFinanceSummary: (month: string) =>
+    fetchJSON<any>(`/kits/finance/summary?month=${month}`),
+  getFixedExpenses: () =>
+    fetchJSON<any[]>("/kits/finance/fixed"),
+
+  // Investment
+  getInvestmentAssets: () =>
+    fetchJSON<any[]>("/kits/investment/assets"),
+  getInvestmentSummary: () =>
+    fetchJSON<any[]>("/kits/investment/summary"),
+
+  // Learning
+  getLearningLogs: () =>
+    fetchJSON<any[]>("/kits/learning/logs"),
+
+  // Culture
+  getCultureLogs: () =>
+    fetchJSON<any[]>("/kits/culture/logs"),
+
+  // Fashion
+  getFashionItems: () =>
+    fetchJSON<any[]>("/kits/fashion/items"),
+
+  // Hobby
+  getHobbyProjects: (status?: string) =>
+    fetchJSON<any[]>(status ? `/kits/hobby/projects?status=${status}` : "/kits/hobby/projects"),
+  getHobbyLogs: () =>
+    fetchJSON<any[]>("/kits/hobby/logs"),
+
+  // Kit Create APIs
+  createExerciseLog: (data: { date: string; activity_type: string; duration_min?: number; calories?: number }) =>
+    fetchJSON<any>("/kits/exercise/logs", { method: "POST", body: JSON.stringify(data) }),
+  createDietLog: (data: { date: string; meal_type: string; food_name: string; calories?: number }) =>
+    fetchJSON<any>("/kits/diet/logs", { method: "POST", body: JSON.stringify(data) }),
+  createFinanceExpense: (data: { date: string; memo: string; amount: number; type: string; expense_type?: string }) =>
+    fetchJSON<any>("/kits/finance/expenses", { method: "POST", body: JSON.stringify(data) }),
+  createInvestmentAsset: (data: { name: string; asset_type: string; quantity?: number; avg_price?: number }) =>
+    fetchJSON<any>("/kits/investment/assets", { method: "POST", body: JSON.stringify(data) }),
+  createLearningLog: (data: { title: string; type: string; started_at?: string }) =>
+    fetchJSON<any>("/kits/learning/logs", { method: "POST", body: JSON.stringify(data) }),
+  createCultureLog: (data: { title: string; type: string; date: string; rating?: number }) =>
+    fetchJSON<any>("/kits/culture/logs", { method: "POST", body: JSON.stringify(data) }),
+  createFashionItem: (data: { name: string; category?: string; brand?: string }) =>
+    fetchJSON<any>("/kits/fashion/items", { method: "POST", body: JSON.stringify(data) }),
+  createHobbyProject: (data: { name: string; memo?: string }) =>
+    fetchJSON<any>("/kits/hobby/projects", { method: "POST", body: JSON.stringify(data) }),
 
   // Settings
   getSettings: () => fetchJSON<Settings>("/settings"),

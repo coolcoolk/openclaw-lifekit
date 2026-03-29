@@ -136,6 +136,28 @@ body {
   font-size: 0.75rem !important;
   font-family: inherit !important;
 }
+
+/* ── 월간 뷰 이벤트: 배경 투명, 텍스트 읽기 가능하게 ── */
+.fc .fc-daygrid-event {
+  background-color: transparent !important;
+  border: none !important;
+  color: var(--color-foreground, #1f2937) !important;
+  padding: 0 !important;
+  margin: 1px 0 !important;
+}
+.fc .fc-daygrid-dot-event {
+  background-color: transparent !important;
+  border: none !important;
+  color: var(--color-foreground, #1f2937) !important;
+  padding: 0 !important;
+}
+.fc .fc-daygrid-dot-event:hover {
+  background-color: var(--color-muted, #f3f4f6) !important;
+}
+.fc .fc-daygrid-event .fc-event-main {
+  color: var(--color-foreground, #1f2937) !important;
+  padding: 0 !important;
+}
 .fc .fc-col-header-cell-cushion,
 .fc .fc-timegrid-slot-label-cushion {
   font-family: inherit !important;
@@ -230,3 +252,10 @@ body {
   }
 }
 
+
+/* FullCalendar +N more 링크 폰트 맞춤 */
+.fc .fc-daygrid-more-link {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--foreground);
+}

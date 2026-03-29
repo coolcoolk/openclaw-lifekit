@@ -6,5 +6,6 @@
   "areaId": "health-diet",
   "description": "식단과 영양 섭취를 기록합니다",
   "tables": ["meal_logs"],
-  "routes": "/api/kits/diet"
+  "routes": "/api/kits/diet",
+  "guide": "식사한 음식 이름, 바코드 사진, 또는 음식 사진을 아그에게 보내면 영양성분과 칼로리를 자동으로 기록해요. 매일 저녁 오늘의 식사 내용을 요약해서 알려드려요."
 }

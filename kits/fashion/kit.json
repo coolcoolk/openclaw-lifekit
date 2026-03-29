@@ -6,5 +6,6 @@
   "areaId": "appear-fashion",
   "description": "옷장 아이템과 패션을 관리합니다",
   "tables": ["wardrobes"],
-  "routes": "/api/kits/fashion"
+  "routes": "/api/kits/fashion",
+  "guide": "옷장에 있는 아이템을 사진으로 등록해서 관리해요. 스킨케어 루틴 체크리스트도 함께 관리할 수 있어요."
 }

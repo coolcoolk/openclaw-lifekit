@@ -6,5 +6,6 @@
   "areaId": "growth-self",
   "description": "독서, 강의, 자격증 등 학습 활동을 기록합니다",
   "tables": ["learning_logs"],
-  "routes": "/api/kits/learning"
+  "routes": "/api/kits/learning",
+  "guide": "읽은 책, 들은 강의, 공부한 내용을 기록해요. 학습 진행상황을 추적하고 꾸준히 성장하는 걸 응원해드려요."
 }

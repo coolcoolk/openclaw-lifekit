@@ -6,5 +6,6 @@
   "areaId": "health-exercise",
   "description": "운동 및 신체 활동을 기록합니다",
   "tables": ["activity_logs", "activity_types"],
-  "routes": "/api/kits/exercise"
+  "routes": "/api/kits/exercise",
+  "guide": "운동 종목, 시간, 세트/중량을 아그에게 말하거나 사진을 보내면 자동으로 기록해요. 부위별 피로도와 이번 주 운동 현황을 추적해드려요."
 }

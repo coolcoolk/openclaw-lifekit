@@ -76,7 +76,7 @@ const MBTI_TYPES = [
 ];
 
 const inputClass =
-  "w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors";
+  "w-full min-w-0 box-border px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors";
 
 const labelClass = "block text-sm font-medium text-foreground mb-1";
 
@@ -90,7 +90,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border border-border rounded-lg p-5 space-y-4">
+    <section className="border border-border rounded-lg p-5 space-y-4 min-w-0 overflow-hidden">
       <h2 className="flex items-center gap-2 text-base font-semibold">
         <Icon size={18} className="text-muted-foreground" />
         {title}
@@ -212,7 +212,7 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4 pb-24 space-y-6">
+    <div className="max-w-2xl mx-auto py-8 px-4 pb-24 space-y-6 overflow-x-hidden">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t("settings.title")}</h1>
         <button
@@ -227,7 +227,7 @@ export function SettingsPage() {
 
       {/* 1. 프로필 */}
       <SectionCard icon={User} title={t("settings.profile")}>
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 min-w-0">
           <div>
             <label className={labelClass}>{t("settings.name")}</label>
             <input

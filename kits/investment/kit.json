@@ -6,5 +6,6 @@
   "areaId": "finance-invest",
   "description": "투자 자산과 매매 기록을 관리합니다",
   "tables": ["investments", "investment_trades"],
-  "routes": "/api/kits/investment"
+  "routes": "/api/kits/investment",
+  "guide": "매수/매도 내역을 아그에게 알려주면 포트폴리오를 자동으로 관리해요. 보유 자산 현황과 수익률을 한눈에 볼 수 있어요."
 }

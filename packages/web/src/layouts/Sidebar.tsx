@@ -1,8 +1,7 @@
 import { cn } from "@/lib/utils";
 import {
   Calendar,
-  BarChart3,
-  Target,
+  FolderKanban,
   Radar,
   Settings,
   ChevronLeft,
@@ -22,8 +21,7 @@ export function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
   const navItems = [
     { icon: <Calendar size={20} />, label: t("nav.calendar"), id: "calendar" },
-    { icon: <BarChart3 size={20} />, label: t("nav.reports"), id: "reports" },
-    { icon: <Target size={20} />, label: t("nav.projects"), id: "projects" },
+    { icon: <FolderKanban size={20} />, label: t("nav.projects"), id: "projects" },
     { icon: <Radar size={20} />, label: t("nav.balance"), id: "balance" },
     { icon: <Settings size={20} />, label: t("nav.settings"), id: "settings" },
   ];

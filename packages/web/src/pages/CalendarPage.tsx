@@ -5,8 +5,10 @@ import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import type { EventClickArg, DateSelectArg, DatesSetArg } from "@fullcalendar/core";
+import koLocale from "@fullcalendar/core/locales/ko";
 import { api, type Task, type Domain, type Relation } from "@/lib/api";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import {
   Plus, X, MapPin, Clock, AlignLeft, RefreshCw,
@@ -1085,6 +1087,7 @@ export function CalendarPage() {
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null);
   const [nowLineTop, setNowLineTop] = useState<number | null>(null);
   const isMobile = useIsMobile();
+  const { language } = useLanguage();
   const [currentView, setCurrentView] = useState<string>("timeGridWeek");
   const [syncing, setSyncing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -1519,8 +1522,8 @@ export function CalendarPage() {
         )}
 
         {/* 메인 캘린더 영역 */}
-        <div className="flex-1 min-w-0 py-4 px-3 md:py-6 md:px-4 overflow-y-auto">
-          <div ref={calendarContainerRef} className="border border-border rounded-lg p-1.5 md:p-3 bg-background relative">
+        <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4 overflow-y-auto">
+          <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
             {/* 현재 시간 빨간줄 오버레이 */}
             {nowLineTop !== null && (
               <div
@@ -1572,8 +1575,9 @@ export function CalendarPage() {
               day: "일",
               listWeek: "목록",
             }}
-            locale="en"
-            firstDay={0}
+            locales={[koLocale]}
+            locale={language === "ko" ? "ko" : "en"}
+            firstDay={1}
             events={calendarEvents}
             droppable
             drop={handleExternalDrop}
@@ -1585,7 +1589,28 @@ export function CalendarPage() {
             dayMaxEvents={isMobile ? 2 : 3}
             eventContent={(arg) => {
               const isDone = arg.event.extendedProps.status === "done";
-              if (isMobile && currentView === "timeGridWeek") {
+              const viewType = arg.view.type;
+
+              // 월간 뷰: 심플한 dot + 제목 (FullCalendar dayGrid 호환)
+              if (viewType === "dayGridMonth") {
+                return (
+                  <div className="flex items-center gap-1 w-full overflow-hidden px-1 py-0.5" style={{ minWidth: 0 }}>
+                    <span
+                      className="shrink-0 w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: arg.event.backgroundColor || "#6b7280" }}
+                    />
+                    <span
+                      className={`truncate text-[11px] leading-tight ${isDone ? "line-through opacity-60" : ""}`}
+                      style={{ color: "inherit" }}
+                    >
+                      {arg.event.title}
+                    </span>
+                  </div>
+                );
+              }
+
+              // 모바일 주간 뷰: 컴팩트
+              if (isMobile && viewType === "timeGridWeek") {
                 return (
                   <div
                     className={`w-full h-full overflow-hidden px-0.5 py-px ${isDone ? "opacity-60" : ""}`}
@@ -1599,6 +1624,8 @@ export function CalendarPage() {
                   </div>
                 );
               }
+
+              // 주간/일간 뷰: 체크박스 + 제목
               return (
                 <div className="flex items-center gap-1 px-1 w-full overflow-hidden">
                   <button

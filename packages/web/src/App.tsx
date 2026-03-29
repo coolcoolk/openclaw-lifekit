@@ -5,7 +5,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import { CalendarPage } from "@/pages/CalendarPage";
 import { BalancePage } from "@/pages/BalancePage";
 import { ProjectsPage } from "@/pages/ProjectsPage";
-import { ReportsPage } from "@/pages/ReportsPage";
+import { ProjectDetailPage } from "@/pages/ProjectDetailPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 
@@ -28,7 +28,9 @@ function Layout() {
           <Route path="/calendar" element={<CalendarPage />} />
           <Route path="/balance" element={<BalancePage />} />
           <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+          <Route path="/reports" element={<Navigate to="/projects" replace />} />
+          <Route path="/balance/projects" element={<Navigate to="/projects" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/calendar" replace />} />
         </Routes>

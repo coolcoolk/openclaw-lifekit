@@ -6,5 +6,6 @@
   "areaId": "growth-culture",
   "description": "영화, 공연, 전시 등 문화생활을 기록합니다",
   "tables": ["culture_logs"],
-  "routes": "/api/kits/culture"
+  "routes": "/api/kits/culture",
+  "guide": "영화, 공연, 전시 등 감상한 문화생활을 기록해요. 아그에게 제목만 알려주면 AI가 메타데이터를 자동으로 가져와 저장해드려요."
 }

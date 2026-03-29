@@ -1,6 +1,9 @@
 import { resolve } from "path";
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from "fs";
 import { homedir } from "os";
+
+// enquirer: require individual prompts (runtime exports, no TS declarations)
+const { Select, MultiSelect, Input, Password } = require("enquirer");
 
 const LIFEKIT_DIR = resolve(homedir(), ".lifekit");
 const CONFIG_PATH = resolve(LIFEKIT_DIR, "config.json");
@@ -21,6 +24,7 @@ const DEFAULT_SETTINGS = {
     briefingTime: "08:00",
     reviewTime: "22:00",
     weeklyReviewTime: "21:00",
+    weeklyReviewDay: 0,
   },
   ai: {
     provider: "anthropic" as const,
@@ -43,31 +47,110 @@ const DEFAULT_SETTINGS = {
   },
 };
 
-function prompt(question: string): string {
-  process.stdout.write(question);
-  const buf = Buffer.alloc(1024);
-  const fd = require("fs").openSync("/dev/stdin", "rs");
-  const n = require("fs").readSync(fd, buf, 0, buf.length, null);
-  require("fs").closeSync(fd);
-  return buf.toString("utf8", 0, n).trim();
+// ── Kit 메타데이터 ──
+const KITS_DIR = resolve(PROJECT_ROOT, "kits");
+
+interface KitMeta {
+  id: string;
+  name: string;
+  nameEn: string;
+  description: string;
+  guide: string;
 }
 
-function promptWithDefault(question: string, defaultValue: string): string {
-  const answer = prompt(`${question} (${defaultValue}): `);
-  return answer || defaultValue;
+const KIT_EMOJI: Record<string, string> = {
+  exercise: "🏃",
+  diet: "🥗",
+  finance: "💰",
+  investment: "📈",
+  relations: "👥",
+  "self-dev": "📚",
+  culture: "🎭",
+  fashion: "👔",
+  hobby: "🎯",
+};
+
+// 표시 순서
+const KIT_ORDER = ["exercise", "diet", "finance", "investment", "relations", "self-dev", "culture", "fashion", "hobby"];
+
+function loadKits(): KitMeta[] {
+  const kits: KitMeta[] = [];
+  if (!existsSync(KITS_DIR)) return kits;
+
+  const dirs = readdirSync(KITS_DIR, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name);
+
+  for (const dir of dirs) {
+    const kitJsonPath = resolve(KITS_DIR, dir, "kit.json");
+    if (existsSync(kitJsonPath)) {
+      try {
+        const meta = JSON.parse(readFileSync(kitJsonPath, "utf-8"));
+        kits.push(meta);
+      } catch {}
+    }
+  }
+
+  // 정렬
+  kits.sort((a, b) => {
+    const ai = KIT_ORDER.indexOf(a.id);
+    const bi = KIT_ORDER.indexOf(b.id);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  return kits;
 }
 
-function promptSecret(question: string): string {
-  const answer = prompt(`${question}: `);
-  return answer;
+// ── Kit 설치 ──
+async function installKits(kitIds: string[], language: string): Promise<void> {
+  const isKo = language === "ko";
+  if (kitIds.length === 0) {
+    console.log(isKo
+      ? "     ⏭️  Kit을 선택하지 않았어요. 나중에 프로젝트 탭에서 활성화할 수 있어요."
+      : "     ⏭️  No kits selected. You can enable them later in the project tab.");
+    return;
+  }
+
+  // 서버 연결 확인
+  let serverOk = false;
+  try {
+    const res = await fetch("http://localhost:4000/api/health", { signal: AbortSignal.timeout(2000) });
+    serverOk = res.ok;
+  } catch {}
+
+  if (!serverOk) {
+    console.log(isKo
+      ? "     ⚠️  서버가 실행 중이지 않아요. 서버 실행 후 프로젝트 탭에서 Kit을 활성화할 수 있어요."
+      : "     ⚠️  Server not running. You can enable kits in the project tab after starting the server.");
+    return;
+  }
+
+  console.log(isKo ? "     📦 Kit 설치 중..." : "     📦 Installing kits...");
+  for (const kitId of kitIds) {
+    try {
+      const res = await fetch(`http://localhost:4000/api/kits/${kitId}/install`, {
+        method: "POST",
+        signal: AbortSignal.timeout(10000),
+      });
+      if (res.ok) {
+        console.log(`     ✅ ${kitId}`);
+      } else {
+        console.log(`     ⚠️  ${kitId} (${res.status})`);
+      }
+    } catch (e: any) {
+      console.log(`     ⚠️  ${kitId} (${e.message})`);
+    }
+  }
 }
 
 // ── AI 연결 테스트 ──
-async function testAiConnection(adapter: string): Promise<{ envLines: string[] }> {
+async function testAiConnection(adapter: string, language: string): Promise<{ envLines: string[] }> {
+  const isKo = language === "ko";
   const envLines: string[] = [];
 
   if (adapter === "openclaw") {
-    console.log("\n  🔗 OpenClaw 연결 설정");
+    console.log(isKo ? "\n  🔗 OpenClaw 연결 설정" : "\n  🔗 OpenClaw Connection Setup");
+
     // OpenClaw 게이트웨이 자동 감지
     const detectedPorts: number[] = [];
     for (const port of [18789, 18790, 18788, 3000]) {
@@ -82,25 +165,43 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
 
     let gatewayUrl: string;
     if (detectedPorts.length > 0) {
-      // 각 포트의 에이전트 이름 조회 (토큰 없이 일단 포트 표시)
-      console.log(`     ✅ OpenClaw detected:`);
-      detectedPorts.forEach((p, i) => console.log(`        ${i + 1}) localhost:${p}`));
-      console.log(`        ${detectedPorts.length + 1}) Enter manually`);
-      const choice = promptWithDefault("     Select", "1");
-      const idx = parseInt(choice) - 1;
-      if (idx >= 0 && idx < detectedPorts.length) {
-        gatewayUrl = `http://localhost:${detectedPorts[idx]}`;
+      const portChoices = [
+        ...detectedPorts.map((p) => `localhost:${p}`),
+        isKo ? "직접 입력" : "Enter manually",
+      ];
+
+      const portSelection: string = await new Select({
+        name: "port",
+        message: isKo ? "OpenClaw 감지됨" : "OpenClaw detected",
+        choices: portChoices,
+      }).run();
+
+      if (portSelection.startsWith("localhost:")) {
+        gatewayUrl = `http://${portSelection}`;
       } else {
-        const portInput = prompt("     Port: ");
+        const portInput: string = await new Input({
+          name: "port",
+          message: "Port",
+          initial: "18789",
+        }).run();
         gatewayUrl = `http://localhost:${portInput}`;
       }
     } else {
-      console.log("     ⚠️  No OpenClaw gateway detected. Is it running?");
-      const portInput = promptWithDefault("     Port", "18789");
+      console.log(isKo
+        ? "     ⚠️  OpenClaw 게이트웨이를 찾을 수 없어요. 실행 중인지 확인해주세요."
+        : "     ⚠️  No OpenClaw gateway detected. Is it running?");
+      const portInput: string = await new Input({
+        name: "port",
+        message: "Port",
+        initial: "18789",
+      }).run();
       gatewayUrl = `http://localhost:${portInput}`;
     }
 
-    const gatewayToken = promptSecret("     Gateway Token");
+    const gatewayToken: string = await new Password({
+      name: "token",
+      message: "Gateway Token",
+    }).run();
 
     // 에이전트 이름 자동 조회
     try {
@@ -123,29 +224,44 @@ async function testAiConnection(adapter: string): Promise<{ envLines: string[] }
     envLines.push(`OPENCLAW_AGENT_ID=main`);
 
     // 연결 테스트
-    console.log("\n     🧪 연결 테스트 중...");
+    console.log(isKo ? "\n     🧪 연결 테스트 중..." : "\n     🧪 Testing connection...");
     try {
       const resp = await fetch(`${gatewayUrl}/`, {
         headers: gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {},
         signal: AbortSignal.timeout(5000),
       });
       if (resp.ok) {
-        console.log("     ✅ OpenClaw 연결 성공!");
+        console.log(isKo ? "     ✅ OpenClaw 연결 성공!" : "     ✅ OpenClaw connected!");
       } else {
-        console.log(`     ⚠️  응답 코드: ${resp.status} — 서버 실행 후 다시 확인해주세요.`);
+        console.log(isKo
+          ? `     ⚠️  응답 코드: ${resp.status} — 서버 실행 후 다시 확인해주세요.`
+          : `     ⚠️  Response: ${resp.status} — please check after starting the server.`);
       }
     } catch (e: any) {
-      console.log(`     ⚠️  연결 실패 (${e.message}) — 서버 실행 후 다시 확인해주세요.`);
+      console.log(isKo
+        ? `     ⚠️  연결 실패 (${e.message}) — 서버 실행 후 다시 확인해주세요.`
+        : `     ⚠️  Connection failed (${e.message}) — please check after starting the server.`);
     }
   } else if (adapter === "anthropic") {
-    console.log("\n  🔗 Anthropic API 설정");
-    const apiKey = promptSecret("     API Key (sk-ant-...)");
+    console.log(isKo ? "\n  🔗 Anthropic API 설정" : "\n  🔗 Anthropic API Setup");
+    const apiKey: string = await new Password({
+      name: "apiKey",
+      message: "API Key (sk-ant-...)",
+    }).run();
 
     envLines.push(`LIFEKIT_AI_ADAPTER=anthropic`);
     envLines.push(`ANTHROPIC_API_KEY=${apiKey}`);
   } else if (adapter === "ollama") {
-    const ollamaModel = promptWithDefault("     Ollama 모델", "llama3.2");
-    const ollamaUrl = promptWithDefault("     Ollama URL", "http://localhost:11434");
+    const ollamaModel: string = await new Input({
+      name: "model",
+      message: isKo ? "Ollama 모델" : "Ollama model",
+      initial: "llama3.2",
+    }).run();
+    const ollamaUrl: string = await new Input({
+      name: "url",
+      message: "Ollama URL",
+      initial: "http://localhost:11434",
+    }).run();
 
     envLines.push(`LIFEKIT_AI_ADAPTER=ollama`);
     envLines.push(`OLLAMA_MODEL=${ollamaModel}`);
@@ -163,6 +279,7 @@ function saveSettingsJson(data: {
   briefingTime: string;
   reviewTime: string;
   weeklyReviewTime: string;
+  weeklyReviewDay: number;
 }) {
   // data 디렉토리 생성
   if (!existsSync(SERVER_DATA_DIR)) {
@@ -196,6 +313,7 @@ function saveSettingsJson(data: {
     briefingTime: data.briefingTime,
     reviewTime: data.reviewTime,
     weeklyReviewTime: data.weeklyReviewTime,
+    weeklyReviewDay: data.weeklyReviewDay,
   };
 
   writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
@@ -204,7 +322,16 @@ function saveSettingsJson(data: {
 
 // ── .env 파일 저장 ──
 function saveEnvFile(envLines: string[]) {
-  writeFileSync(SERVER_ENV_PATH, envLines.join("\n") + "\n");
+  // 기존 .env 파일에서 새 키에 해당하지 않는 라인 보존 (e.g. NOTION_TOKEN)
+  const newKeys = new Set(envLines.map((l) => l.split("=")[0]));
+  let existing: string[] = [];
+  if (existsSync(SERVER_ENV_PATH)) {
+    existing = readFileSync(SERVER_ENV_PATH, "utf-8")
+      .split("\n")
+      .filter((l) => l.trim() && !newKeys.has(l.split("=")[0]));
+  }
+  const merged = [...envLines, ...existing];
+  writeFileSync(SERVER_ENV_PATH, merged.join("\n") + "\n");
   console.log(`  💾 환경변수 저장: ${SERVER_ENV_PATH}`);
 }
 
@@ -217,11 +344,15 @@ const T = {
     basicInfo: "2️⃣  기본 정보",
     timezoneAuto: "타임존: %s (자동 감지)",
     aiAdapter: "3️⃣  AI 어댑터 선택",
-    adapterPrompt: "선택 (1/2/3/4)",
-    reviewTime: "4️⃣  회고 시간 설정",
-    briefingPrompt: "모닝 브리핑 시간",
-    reviewPrompt: "일일 회고 시간",
-    weeklyReviewPrompt: "주간 회고 시간",
+    adapterPrompt: "AI 어댑터 선택",
+    kitSelect: "4️⃣  Kit 선택",
+    kitNone: "Kit이 없어요",
+    googleCalStep: "5️⃣  구글 캘린더 연동",
+    tailscaleStep: "6️⃣  원격 접속 (Tailscale)",
+    reviewTime: "7️⃣  회고 시간 설정",
+    briefingPrompt: "모닝 브리핑 시간 (HH:MM)",
+    reviewPrompt: "일일 회고 시간 (HH:MM)",
+    weeklyReviewPrompt: "주간 회고 시간 (HH:MM)",
     done: "✅ LifeKit 초기 설정 완료!",
     startHint: "시작하기:",
     connectHint: "선택 연동:",
@@ -229,6 +360,7 @@ const T = {
     tailscaleHint: "원격 접속:",
     onboardingHint: "AI 온보딩:",
     onboardingDesc: "서버 실행 후 OpenClaw에게 \"LifeKit 온보딩 시작해줘\" 라고 말하면\n  대화형으로 각 영역별 초기 설정을 진행할 수 있어요.",
+    kitAddLater: "Kit은 프로젝트 탭에서 언제든 추가/제거할 수 있어요.",
   },
   en: {
     title: "🧰 LifeKit Setup",
@@ -236,11 +368,15 @@ const T = {
     basicInfo: "2️⃣  Basic Info",
     timezoneAuto: "Timezone: %s (auto-detected)",
     aiAdapter: "3️⃣  AI Adapter",
-    adapterPrompt: "Select (1/2/3/4)",
-    reviewTime: "4️⃣  Review Schedule",
-    briefingPrompt: "Morning briefing time",
-    reviewPrompt: "Daily review time",
-    weeklyReviewPrompt: "Weekly review time",
+    adapterPrompt: "AI Adapter",
+    kitSelect: "4️⃣  Select Kits",
+    kitNone: "No kits found",
+    googleCalStep: "5️⃣  Google Calendar",
+    tailscaleStep: "6️⃣  Remote Access (Tailscale)",
+    reviewTime: "7️⃣  Review Schedule",
+    briefingPrompt: "Morning briefing time (HH:MM)",
+    reviewPrompt: "Daily review time (HH:MM)",
+    weeklyReviewPrompt: "Weekly review time (HH:MM)",
     done: "✅ LifeKit setup complete!",
     startHint: "Get started:",
     connectHint: "Optional integrations:",
@@ -248,30 +384,36 @@ const T = {
     tailscaleHint: "Remote access:",
     onboardingHint: "AI Onboarding:",
     onboardingDesc: "After starting the server, tell your OpenClaw agent:\n  \"Start LifeKit onboarding\"\n  to set up each life area through conversation.",
+    kitAddLater: "You can add/remove Kits anytime in the project tab.",
   },
 };
 
 export async function initCommand() {
-  // 언어 먼저 선택 (기본: 영어)
-  process.stdout.write("\n  🌐 Language / 언어\n");
-  process.stdout.write("     1) English (default)\n");
-  process.stdout.write("     2) 한국어\n");
-  const langChoice = promptWithDefault("     Select / 선택 (1/2)", "1");
-  const language = langChoice === "2" ? "ko" : "en";
-  const t = T[language];
+  // 1. 언어 선택
+  const language: string = await new Select({
+    name: "language",
+    message: "Language / 언어",
+    choices: [
+      { name: "ko", message: "한국어" },
+      { name: "en", message: "English" },
+    ],
+  }).run();
+
+  const t = T[language as keyof typeof T];
+  const isKo = language === "ko";
 
   console.log(`
   ${t.title}
   ─────────────────────
   `);
 
-  // 1. 환경 체크
+  // 2. 환경 체크
   console.log(`  ${t.envCheck}`);
   const bunVersion = Bun.version;
   console.log(`     Bun: v${bunVersion} ✅`);
   console.log("");
 
-  // 2. 기본 정보
+  // 3. 기본 정보
   console.log(`  ${t.basicInfo}`);
   const name = ""; // 에이전트 연결 후 온보딩 시 설정
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -279,36 +421,176 @@ export async function initCommand() {
   const dataDir = "~/.lifekit/";
   console.log("");
 
-  // 3. 데이터 디렉토리 생성
+  // 4. 데이터 디렉토리 생성
   const resolvedDataDir = dataDir.replace("~", homedir());
   if (!existsSync(resolvedDataDir)) {
     mkdirSync(resolvedDataDir, { recursive: true });
   }
 
-  // 4. AI 어댑터 선택 + 연결 테스트
+  // 5. AI 어댑터 선택
   console.log(`  ${t.aiAdapter}`);
-  console.log("     1) openclaw (recommended)");
-  console.log("     2) anthropic");
-  console.log("     3) ollama");
-  console.log("     4) manual");
-  const adapterChoice = promptWithDefault(`     ${t.adapterPrompt}`, "1");
-  const adapterMap: Record<string, string> = { "1": "openclaw", "2": "anthropic", "3": "ollama", "4": "manual" };
-  const adapter = adapterMap[adapterChoice] || "openclaw";
-  console.log(`     → ${adapter} 선택됨`);
+  const adapterChoiceMap: Record<string, string> = {
+    "OpenClaw (추천)": "openclaw",
+    "OpenClaw (recommended)": "openclaw",
+    "Anthropic": "anthropic",
+    "Ollama": "ollama",
+    "Manual": "manual",
+  };
+
+  const adapterLabel: string = await new Select({
+    name: "adapter",
+    message: t.adapterPrompt,
+    choices: isKo
+      ? ["OpenClaw (추천)", "Anthropic", "Ollama", "Manual"]
+      : ["OpenClaw (recommended)", "Anthropic", "Ollama", "Manual"],
+  }).run();
+
+  const adapter = adapterChoiceMap[adapterLabel] || "openclaw";
+  console.log(`     → ${adapter}`);
 
   // AI 연결 테스트 + .env 생성
   let envLines: string[] = [];
   if (adapter !== "manual") {
-    const aiResult = await testAiConnection(adapter);
+    const aiResult = await testAiConnection(adapter, language);
     envLines = aiResult.envLines;
   }
   console.log("");
 
-  // 6. 회고 시간 설정
+  // 6. Kit 선택
+  const kits = loadKits();
+  let selectedKitIds: string[] = [];
+  if (kits.length > 0) {
+    console.log(`  ${t.kitSelect}`);
+    selectedKitIds = await new MultiSelect({
+      name: "kits",
+      message: isKo
+        ? "사용할 Kit을 선택해주세요 (나중에 프로젝트 탭에서 언제든 추가할 수 있어요)\n  스페이스: 선택/해제 | 엔터: 확인 (선택 없이 엔터 시 skip)"
+        : "Select Kits (you can add more later in the project tab)\n  Space: toggle | Enter: confirm (enter without selection to skip)",
+      choices: kits.map((k) => {
+        const emoji = KIT_EMOJI[k.id] || "📦";
+        return {
+          name: k.id,
+          message: `${emoji} ${isKo ? k.name : k.nameEn}`,
+          hint: isKo ? k.description : k.guide,
+        };
+      }),
+    }).run();
+
+    if (selectedKitIds.length > 0) {
+      const names = selectedKitIds.map((id) => {
+        const kit = kits.find((k) => k.id === id);
+        const emoji = KIT_EMOJI[id] || "📦";
+        return `${emoji} ${isKo ? kit?.name : kit?.nameEn}`;
+      });
+      console.log(`     → ${names.join(", ")}`);
+    }
+    await installKits(selectedKitIds, language);
+  } else {
+    console.log(`  ${t.kitNone}`);
+  }
+  console.log("");
+
+  // 7. 구글 캘린더 연동
+  console.log(`  ${t.googleCalStep}`);
+  const googleChoice: string = await new Select({
+    name: "google",
+    message: isKo
+      ? "구글 캘린더를 연동하시겠어요?\n  연동하면 일정이 자동으로 LifeKit 캘린더에 동기화되고,\n  AI가 일정을 인식해서 미리 알림과 준비 도움을 드릴 수 있어요."
+      : "Connect Google Calendar?\n  Your schedule will sync automatically and AI can help with reminders.",
+    choices: isKo
+      ? ["지금 연동하기", "나중에 연동 (lifekit connect google)"]
+      : ["Connect now", "Later (lifekit connect google)"],
+  }).run();
+
+  if (googleChoice === "지금 연동하기" || googleChoice === "Connect now") {
+    // connect.ts의 google 연동 로직 실행
+    const proc = Bun.spawn(["bun", "run", "lifekit", "connect", "google"], {
+      cwd: PROJECT_ROOT,
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: "inherit",
+    });
+    await proc.exited;
+  } else {
+    console.log(isKo
+      ? "     ⏭️  나중에 lifekit connect google 으로 연동할 수 있어요."
+      : "     ⏭️  You can connect later with: lifekit connect google");
+  }
+  console.log("");
+
+  // 8. Tailscale 원격 접속
+  console.log(`  ${t.tailscaleStep}`);
+  const tailscaleChoice: string = await new Select({
+    name: "tailscale",
+    message: isKo
+      ? "스마트폰에서도 LifeKit을 사용하시겠어요?\n  Tailscale을 연동하면 집 밖에서도 스마트폰으로 LifeKit에 접속할 수 있어요.\n  (Tailscale 앱을 기기에 미리 설치해주세요)"
+      : "Use LifeKit on your phone?\n  Tailscale lets you access LifeKit remotely from anywhere.\n  (Install the Tailscale app on your device first)",
+    choices: isKo
+      ? ["Tailscale 연동하기", "나중에 연동 (lifekit connect tailscale)"]
+      : ["Connect Tailscale", "Later (lifekit connect tailscale)"],
+  }).run();
+
+  if (tailscaleChoice === "Tailscale 연동하기" || tailscaleChoice === "Connect Tailscale") {
+    const proc = Bun.spawn(["bun", "run", "lifekit", "connect", "tailscale"], {
+      cwd: PROJECT_ROOT,
+      stdout: "inherit",
+      stderr: "inherit",
+      stdin: "inherit",
+    });
+    await proc.exited;
+  } else {
+    console.log(isKo
+      ? "     ⏭️  나중에 lifekit connect tailscale 으로 연동할 수 있어요."
+      : "     ⏭️  You can connect later with: lifekit connect tailscale");
+  }
+  console.log("");
+
+  // 9. 회고 시간 설정
   console.log(`  ${t.reviewTime}`);
-  const briefingTime = promptWithDefault(`     ${t.briefingPrompt} (HH:MM)`, "08:00");
-  const reviewTime = promptWithDefault(`     ${t.reviewPrompt} (HH:MM)`, "22:00");
-  const weeklyReviewTime = promptWithDefault(`     ${t.weeklyReviewPrompt} (HH:MM)`, "21:00");
+  const briefingTime: string = await new Input({
+    name: "briefingTime",
+    message: t.briefingPrompt,
+    initial: "08:00",
+  }).run();
+  const reviewTime: string = await new Input({
+    name: "reviewTime",
+    message: t.reviewPrompt,
+    initial: "22:00",
+  }).run();
+
+  // 주간 회고 요일 선택
+  const dayChoices = isKo
+    ? [
+        { name: "0", message: "일요일 (권장) ★" },
+        { name: "1", message: "월요일" },
+        { name: "2", message: "화요일" },
+        { name: "3", message: "수요일" },
+        { name: "4", message: "목요일" },
+        { name: "5", message: "금요일" },
+        { name: "6", message: "토요일" },
+      ]
+    : [
+        { name: "0", message: "Sunday (recommended) ★" },
+        { name: "1", message: "Monday" },
+        { name: "2", message: "Tuesday" },
+        { name: "3", message: "Wednesday" },
+        { name: "4", message: "Thursday" },
+        { name: "5", message: "Friday" },
+        { name: "6", message: "Saturday" },
+      ];
+
+  const weeklyReviewDayStr: string = await new Select({
+    name: "weeklyReviewDay",
+    message: isKo ? "주간 회고 요일 (일요일 권장)" : "Weekly review day (Sunday recommended)",
+    choices: dayChoices,
+  }).run();
+  const weeklyReviewDay = parseInt(weeklyReviewDayStr, 10);
+
+  const weeklyReviewTime: string = await new Input({
+    name: "weeklyReviewTime",
+    message: t.weeklyReviewPrompt,
+    initial: "21:00",
+  }).run();
   console.log("");
 
   // ── 저장 ──
@@ -324,6 +606,7 @@ export async function initCommand() {
     timezone,
     dataDir,
     adapter,
+    kits: selectedKitIds,
     createdAt: new Date().toISOString(),
   };
 
@@ -338,6 +621,7 @@ export async function initCommand() {
     briefingTime,
     reviewTime,
     weeklyReviewTime,
+    weeklyReviewDay,
   });
 
   // .env 파일 저장 (packages/server/.env)
@@ -348,7 +632,6 @@ export async function initCommand() {
   console.log("");
 
   // ── 완료 안내 ──
-  const isKo = language === "ko";
   console.log(`  ${t.done}
   ═══════════════════════════
 
@@ -361,6 +644,8 @@ export async function initCommand() {
   🔗 ${t.connectHint}
      ${t.googleHint}    bun run lifekit connect google
      ${t.tailscaleHint} bun run lifekit connect tailscale
+
+  📋 ${t.kitAddLater}
 
   🤖 ${t.onboardingHint}
      ${t.onboardingDesc}
