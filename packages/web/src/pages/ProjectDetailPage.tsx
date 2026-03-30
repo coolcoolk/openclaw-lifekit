@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { api, type ProjectWithTasks, type Task } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import { cn } from "@/lib/utils";
 import {
@@ -18,12 +19,14 @@ import {
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
 
-const STATUS_BADGE: Record<StatusKey, { label: string; class: string }> = {
-  active: { label: "진행 중", class: "bg-green-500/15 text-green-600" },
-  backlog: { label: "대기", class: "bg-blue-500/15 text-blue-600" },
-  paused: { label: "일시중단", class: "bg-yellow-500/15 text-yellow-600" },
-  completed: { label: "완료", class: "bg-gray-500/15 text-gray-500" },
-};
+function getStatusBadges(t: (key: string) => string): Record<StatusKey, { label: string; class: string }> {
+  return {
+    active: { label: t("projects.statusActive"), class: "bg-green-500/15 text-green-600" },
+    backlog: { label: t("projects.statusBacklog"), class: "bg-blue-500/15 text-blue-600" },
+    paused: { label: t("projects.statusPaused"), class: "bg-yellow-500/15 text-yellow-600" },
+    completed: { label: t("projects.statusCompleted"), class: "bg-gray-500/15 text-gray-500" },
+  };
+}
 
 const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
   P1: { label: "P1", class: "bg-red-500/15 text-red-600" },
@@ -31,13 +34,18 @@ const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
   P3: { label: "P3", class: "bg-gray-500/15 text-gray-500" },
 };
 
-const TASK_STATUS_BADGE: Record<string, { label: string; class: string }> = {
-  todo: { label: "할 일", class: "bg-blue-500/15 text-blue-600" },
-  in_progress: { label: "진행 중", class: "bg-yellow-500/15 text-yellow-600" },
-  done: { label: "완료", class: "bg-green-500/15 text-green-600" },
-};
+function getTaskStatusBadges(t: (key: string) => string): Record<string, { label: string; class: string }> {
+  return {
+    todo: { label: t("projectDetail.taskStatusTodo"), class: "bg-blue-500/15 text-blue-600" },
+    in_progress: { label: t("projectDetail.taskStatusInProgress"), class: "bg-yellow-500/15 text-yellow-600" },
+    done: { label: t("projectDetail.taskStatusDone"), class: "bg-green-500/15 text-green-600" },
+  };
+}
 
 export function ProjectDetailPage() {
+  const { t } = useLanguage();
+  const STATUS_BADGE = getStatusBadges(t);
+  const TASK_STATUS_BADGE = getTaskStatusBadges(t);
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectWithTasks | null>(null);
@@ -158,7 +166,7 @@ export function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        로딩 중...
+        {t("projects.loading")}
       </div>
     );
   }
@@ -166,12 +174,12 @@ export function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="max-w-3xl mx-auto py-8 px-4 text-center">
-        <p className="text-muted-foreground mb-4">프로젝트를 찾을 수 없어요</p>
+        <p className="text-muted-foreground mb-4">{t("projectDetail.notFound")}</p>
         <button
           onClick={() => navigate("/projects")}
           className="text-sm text-primary hover:underline"
         >
-          프로젝트 목록으로
+          {t("projectDetail.backToList")}
         </button>
       </div>
     );
@@ -193,7 +201,7 @@ export function ProjectDetailPage() {
         className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <ArrowLeft size={16} />
-        프로젝트 목록
+        {t("projectDetail.projectList")}
       </button>
 
       {/* 프로젝트 헤더 */}
@@ -208,7 +216,7 @@ export function ProjectDetailPage() {
             onChange={(e) => setName(e.target.value)}
             onBlur={() => autoSave("name", name)}
             className="text-xl md:text-2xl font-bold bg-transparent border-none outline-none flex-1 min-w-0 hover:bg-muted/50 focus:bg-muted/50 rounded px-1 py-0.5"
-            placeholder="프로젝트 이름"
+            placeholder={t("projects.projectName")}
           />
         </div>
 

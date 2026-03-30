@@ -33,6 +33,7 @@ function MiniCalendar({
   selectedDate: Date;
   onDateSelect: (date: Date) => void;
 }) {
+  const { t, language } = useLanguage();
   const [viewMonth, setViewMonth] = useState(new Date(selectedDate));
 
   const year = viewMonth.getFullYear();
@@ -74,14 +75,17 @@ function MiniCalendar({
           <ChevronLeft size={14} />
         </button>
         <span className="text-xs font-medium">
-          {year}년 {month + 1}월
+          {language === "ko" ? `${year}년 ${month + 1}월` : `${month + 1}/${year}`}
         </span>
         <button onClick={nextMonth} className="p-1 hover:bg-muted rounded">
           <ChevronRight size={14} />
         </button>
       </div>
       <div className="grid grid-cols-7 gap-0 text-center">
-        {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+        {(language === "ko"
+          ? ["일", "월", "화", "수", "목", "금", "토"]
+          : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"]
+        ).map((d) => (
           <div key={d} className="text-[10px] text-muted-foreground py-0.5">{d}</div>
         ))}
         {days.map((d, i) => (
@@ -127,7 +131,7 @@ function formatEstimatedTime(minutes: number): string {
 }
 
 // ── 날짜 그룹핑 헬퍼 ──
-function groupTasksByDate(tasks: Task[]): { label: string; tasks: Task[] }[] {
+function groupTasksByDate(tasks: Task[], t: (key: string) => string): { label: string; tasks: Task[] }[] {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today);
@@ -157,10 +161,10 @@ function groupTasksByDate(tasks: Task[]): { label: string; tasks: Task[] }[] {
   }
 
   const result: { label: string; tasks: Task[] }[] = [];
-  if (groups.today.length > 0) result.push({ label: "오늘", tasks: groups.today });
-  if (groups.yesterday.length > 0) result.push({ label: "어제", tasks: groups.yesterday });
-  if (groups.older.length > 0) result.push({ label: "이전", tasks: groups.older });
-  if (groups.noDate.length > 0) result.push({ label: "날짜 없음", tasks: groups.noDate });
+  if (groups.today.length > 0) result.push({ label: t("calendar.today"), tasks: groups.today });
+  if (groups.yesterday.length > 0) result.push({ label: t("calendar.yesterday"), tasks: groups.yesterday });
+  if (groups.older.length > 0) result.push({ label: t("calendar.older"), tasks: groups.older });
+  if (groups.noDate.length > 0) result.push({ label: t("calendar.noDate"), tasks: groups.noDate });
   return result;
 }
 
@@ -176,6 +180,7 @@ function TasksTabContent({
   completingIds: Set<string>;
   removingIds: Set<string>;
 }) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -194,12 +199,12 @@ function TasksTabContent({
   if (tasks.length === 0) {
     return (
       <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-        미완료 태스크가 없습니다
+        {t("calendar.noIncompleteTasks")}
       </div>
     );
   }
 
-  const groups = groupTasksByDate(tasks);
+  const groups = groupTasksByDate(tasks, t);
 
   return (
     <div ref={containerRef} className="space-y-3">
@@ -293,6 +298,7 @@ function DomainsTabContent({
   onToggleDomain: (domainId: string) => void;
   onToggleAll: () => void;
 }) {
+  const { t } = useLanguage();
   const allDomainIds = [...domains.map((d) => d.id), "__none__"];
   const allSelected = allDomainIds.every((id) => !hiddenDomains.has(id));
 
@@ -300,13 +306,13 @@ function DomainsTabContent({
     <div className="space-y-3">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-          도메인
+          {t("calendar.domains")}
         </h3>
         <button
           onClick={onToggleAll}
           className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
         >
-          {allSelected ? "전체 해제" : "전체 선택"}
+          {allSelected ? t("calendar.deselectAll") : t("calendar.selectAll")}
         </button>
       </div>
       {domains.map((d) => (
@@ -338,7 +344,7 @@ function DomainsTabContent({
           className="w-2.5 h-2.5 rounded-full shrink-0"
           style={{ backgroundColor: DOMAIN_COLORS["default"] }}
         />
-        <span className="truncate">미분류</span>
+        <span className="truncate">{t("calendar.uncategorized")}</span>
       </label>
     </div>
   );
@@ -372,6 +378,8 @@ function CalendarSidebar({
 }) {
   const [activeTab, setActiveTab] = useState<"tasks" | "domains">("tasks");
 
+  const { t } = useLanguage();
+
   if (!open) return null;
 
   return (
@@ -390,7 +398,7 @@ function CalendarSidebar({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            태스크
+            {t("calendar.tasks")}
           </button>
           <button
             onClick={() => setActiveTab("domains")}
@@ -400,7 +408,7 @@ function CalendarSidebar({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            도메인
+            {t("calendar.domains")}
           </button>
         </div>
 
@@ -572,6 +580,7 @@ function EventDetailContent({
     [event.id, onUpdate],
   );
 
+  const { t } = useLanguage();
   const inputClass = "w-full px-2 py-1.5 text-sm border border-transparent rounded-md bg-transparent hover:bg-muted/50 focus:bg-background focus:border-border focus:outline-none transition-colors";
 
   return (
@@ -583,7 +592,7 @@ function EventDetailContent({
           onChange={(e) => setTitle(e.target.value)}
           onBlur={() => autoSave("title", title)}
           className="font-semibold text-sm bg-transparent border-none outline-none flex-1 mr-2 hover:bg-muted/50 focus:bg-muted/50 rounded px-1 py-0.5"
-          placeholder="제목"
+          placeholder={t("calendar.title")}
         />
         <button
           onClick={onClose}
@@ -609,7 +618,7 @@ function EventDetailContent({
             }}
             className="text-sm bg-transparent border-none outline-none cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
           >
-            <option value="">미분류</option>
+            <option value="">{t("calendar.uncategorized")}</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.icon} {d.name}
@@ -623,7 +632,7 @@ function EventDetailContent({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Clock size={14} className="shrink-0" />
-              <span className="text-xs">시작</span>
+              <span className="text-xs">{t("calendar.start")}</span>
             </div>
             {startAt && (
               <button
@@ -634,9 +643,9 @@ function EventDetailContent({
                   onClose();
                 }}
                 className="text-xs text-muted-foreground hover:text-destructive transition-colors"
-                title="시간 배정 해제"
+                title={t("calendar.clearTimeTitle")}
               >
-                ✕ 시간 삭제
+                {t("calendar.clearTime")}
               </button>
             )}
           </div>
@@ -649,7 +658,7 @@ function EventDetailContent({
           />
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock size={14} className="shrink-0" />
-            <span className="text-xs">종료</span>
+            <span className="text-xs">{t("calendar.end")}</span>
           </div>
           <input
             type="datetime-local"
@@ -667,7 +676,7 @@ function EventDetailContent({
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             onBlur={() => autoSave("location", location)}
-            placeholder="장소 추가"
+            placeholder={t("calendar.addLocation")}
             className={inputClass}
           />
         </div>
@@ -679,7 +688,7 @@ function EventDetailContent({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={() => autoSave("description", description)}
-            placeholder="설명 추가"
+            placeholder={t("calendar.addDescription")}
             rows={3}
             className={`${inputClass} resize-none`}
           />
@@ -693,21 +702,21 @@ function EventDetailContent({
           className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 transition-colors"
         >
           <Trash2 size={14} />
-          삭제
+          {t("calendar.delete")}
         </button>
         <button
           onClick={() => { onDuplicate(event); onClose(); }}
           className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors"
         >
           <Copy size={14} />
-          복제
+          {t("calendar.duplicate")}
         </button>
         <div className="flex-1" />
         <button
           onClick={onClose}
           className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
         >
-          닫기
+          {t("calendar.close")}
         </button>
       </div>
     </>
@@ -806,6 +815,7 @@ function CreateEventContent({
   const [linkedDomainId, setLinkedDomainId] = useState("");
   const [selectedRelationIds, setSelectedRelationIds] = useState<string[]>([]);
   const [allRelations, setAllRelations] = useState<Relation[]>([]);
+  const { t } = useLanguage();
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -840,7 +850,7 @@ function CreateEventContent({
     <>
       {/* 헤더 */}
       <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
-        <h2 className="font-semibold text-sm">새 이벤트</h2>
+        <h2 className="font-semibold text-sm">{t("calendar.newEvent")}</h2>
         <button
           onClick={onClose}
           className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground shrink-0"
@@ -854,7 +864,7 @@ function CreateEventContent({
         <input
           ref={titleRef}
           type="text"
-          placeholder="이벤트 제목"
+          placeholder={t("calendar.eventTitle")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -867,14 +877,14 @@ function CreateEventContent({
             onChange={(e) => setAllDay(e.target.checked)}
             className="rounded"
           />
-          종일
+          {t("calendar.allDay")}
         </label>
 
         {/* 시간 */}
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock size={14} className="shrink-0" />
-            <span className="text-xs">시작</span>
+            <span className="text-xs">{t("calendar.start")}</span>
           </div>
           <div className="flex gap-2">
             <input
@@ -897,7 +907,7 @@ function CreateEventContent({
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Clock size={14} className="shrink-0" />
-            <span className="text-xs">종료</span>
+            <span className="text-xs">{t("calendar.end")}</span>
           </div>
           <div className="flex gap-2">
             <input
@@ -922,7 +932,7 @@ function CreateEventContent({
           <MapPin size={14} className="shrink-0 text-muted-foreground" />
           <input
             type="text"
-            placeholder="장소 (선택)"
+            placeholder={t("calendar.locationOptional")}
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className={inputClass}
@@ -933,7 +943,7 @@ function CreateEventContent({
         <div className="flex items-start gap-2">
           <AlignLeft size={14} className="mt-2 shrink-0 text-muted-foreground" />
           <textarea
-            placeholder="설명 (선택)"
+            placeholder={t("calendar.descriptionOptional")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -952,7 +962,7 @@ function CreateEventContent({
             onChange={(e) => setLinkedDomainId(e.target.value)}
             className="text-sm bg-transparent border-none outline-none cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
           >
-            <option value="">미분류</option>
+            <option value="">{t("calendar.uncategorized")}</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.icon} {d.name}
@@ -966,7 +976,7 @@ function CreateEventContent({
           <div className="space-y-1.5">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Users size={14} className="shrink-0" />
-              <span className="text-xs">관계 인물 (선택)</span>
+              <span className="text-xs">{t("calendar.relationOptional")}</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {allRelations.map((r) => (
@@ -1001,7 +1011,7 @@ function CreateEventContent({
           onClick={onClose}
           className="px-4 py-2 text-sm rounded-md hover:bg-muted transition-colors min-h-[44px]"
         >
-          취소
+          {t("calendar.cancel")}
         </button>
         <div className="flex-1" />
         <button
@@ -1010,7 +1020,7 @@ function CreateEventContent({
           disabled={!title.trim()}
           className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40 min-h-[44px]"
         >
-          생성
+          {t("calendar.create")}
         </button>
       </div>
     </>
@@ -1271,7 +1281,7 @@ export function CalendarPage() {
   const handleDuplicate = useCallback(
     async (event: Task) => {
       await api.createTask({
-        title: `${event.title} (복사본)`,
+        title: `${event.title} (${t("calendar.copy")})`,
         description: event.description,
         start_at: event.startAt,
         end_at: event.endAt,
@@ -1374,7 +1384,7 @@ export function CalendarPage() {
       } else {
         // 새 태스크 생성
         await api.createTask({
-          title: parsed.title || "태스크",
+          title: parsed.title || t("calendar.task"),
           start_at: startAt.toISOString(),
           end_at: endAt.toISOString(),
         } as any);
@@ -1451,21 +1461,21 @@ export function CalendarPage() {
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground"
-              title={sidebarOpen ? "패널 닫기" : "패널 열기"}
+              title={sidebarOpen ? t("calendar.closePanel") : t("calendar.openPanel")}
             >
               {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
             </button>
           )}
           <h1 className="text-xl md:text-2xl font-bold">
-            캘린더
+            {t("calendar.calendar")}
           </h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg overflow-hidden border border-border">
             {([
-              { view: "dayGridMonth", label: "월" },
-              { view: "timeGridWeek", label: "주" },
-              { view: "timeGridDay", label: "일" },
+              { view: "dayGridMonth", label: t("calendar.monthView") },
+              { view: "timeGridWeek", label: t("calendar.weekView") },
+              { view: "timeGridDay", label: t("calendar.dayView") },
             ] as const).map(({ view, label }) => (
               <button
                 key={view}
@@ -1484,7 +1494,7 @@ export function CalendarPage() {
             onClick={handleSync}
             disabled={syncing}
             className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors min-h-[44px] disabled:opacity-50"
-            title="구글 캘린더 동기화"
+            title={t("calendar.syncGoogle")}
           >
             <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
           </button>
@@ -1497,7 +1507,7 @@ export function CalendarPage() {
             className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity min-h-[44px]"
           >
             <Plus size={16} />
-            <span className="hidden md:inline">새 이벤트</span>
+            <span className="hidden md:inline">{t("calendar.newEvent")}</span>
           </button>
         </div>
       </div>
@@ -1569,11 +1579,11 @@ export function CalendarPage() {
               right: "",
             }}
             buttonText={{
-              today: "오늘",
-              month: "월",
-              week: "주",
-              day: "일",
-              listWeek: "목록",
+              today: t("calendar.today"),
+              month: t("calendar.monthView"),
+              week: t("calendar.weekView"),
+              day: t("calendar.dayView"),
+              listWeek: t("calendar.listView"),
             }}
             locales={[koLocale]}
             locale={language === "ko" ? "ko" : "en"}
@@ -1722,9 +1732,9 @@ export function CalendarPage() {
           pointerEvents: toastVisible ? "auto" : "none",
         }}
       >
-        <span>삭제됨</span>
+        <span>{t("calendar.deleted")}</span>
         <button onClick={handleUndoDelete} className="font-semibold text-blue-400">
-          되돌리기
+          {t("calendar.undo")}
         </button>
       </div>
     </div>

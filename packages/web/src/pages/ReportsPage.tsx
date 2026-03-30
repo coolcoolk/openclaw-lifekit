@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { api, type Report, type Domain } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
@@ -48,6 +49,7 @@ function getMondayOfWeek(dateStr: string) {
 
 // ── 메인 페이지 ──
 export function ReportsPage() {
+  const { t, language } = useLanguage();
   const [tab, setTab] = useState<"daily" | "weekly">("daily");
   const [reports, setReports] = useState<Report[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -100,7 +102,7 @@ export function ReportsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        로딩 중...
+        {t("reports.loading")}
       </div>
     );
   }
@@ -109,14 +111,14 @@ export function ReportsPage() {
     <div className="max-w-3xl mx-auto py-6 px-3 md:py-8 md:px-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 md:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold">📊 리포트</h1>
+        <h1 className="text-xl md:text-2xl font-bold">{t("reports.reports")}</h1>
         <button
           onClick={handleGenerate}
           disabled={generating}
           className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 min-h-[44px]"
         >
           <Sparkles size={16} />
-          {generating ? "생성 중..." : "오늘 리포트 생성"}
+          {generating ? t("reports.generating") : t("reports.generateToday")}
         </button>
       </div>
 
@@ -132,7 +134,7 @@ export function ReportsPage() {
           )}
         >
           <Calendar size={14} className="inline mr-1.5 -mt-0.5" />
-          일일 리포트
+          {t("reports.dailyReport")}
         </button>
         <button
           onClick={() => { setTab("weekly"); setSelectedReport(null); }}
@@ -144,7 +146,7 @@ export function ReportsPage() {
           )}
         >
           <FileText size={14} className="inline mr-1.5 -mt-0.5" />
-          주간 리포트
+          {t("reports.weeklyReport")}
         </button>
       </div>
 
@@ -153,7 +155,7 @@ export function ReportsPage() {
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg mb-2">📊</p>
           <p className="text-sm">
-            {tab === "daily" ? "일일" : "주간"} 리포트가 없어요. 위에서 생성해보세요!
+            {t("reports.noReports", { type: tab === "daily" ? t("reports.dailyReport") : t("reports.weeklyReport") })}
           </p>
         </div>
       ) : (
@@ -193,6 +195,7 @@ function ReportCard({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   const meta = report.meta ? JSON.parse(report.meta) : {};
   const isWeekly = report.type === "weekly";
 
@@ -221,13 +224,13 @@ function ReportCard({
                 : "bg-yellow-500/15 text-yellow-600"
             )}
           >
-            {report.status === "sent" ? "발송됨" : "작성 중"}
+            {report.status === "sent" ? t("reports.sent") : t("reports.draft")}
           </span>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {meta.totalTasks !== undefined && (
             <span>
-              {meta.doneTasks ?? 0}/{meta.totalTasks}건 완료
+              {t("reports.completedCount", { done: meta.doneTasks ?? 0, total: meta.totalTasks })}
             </span>
           )}
           {meta.completionRate !== undefined && (
@@ -301,6 +304,7 @@ function ReportDetailContent({
   onClose: () => void;
   onUpdate: (id: string, data: Record<string, any>) => void;
 }) {
+  const { t } = useLanguage();
   const [diary, setDiary] = useState(report.diary || "");
   const [nextPlan, setNextPlan] = useState(report.nextPlan || "");
   const meta = report.meta ? JSON.parse(report.meta) : {};
@@ -347,8 +351,8 @@ function ReportDetailContent({
       <div className="flex items-center justify-between px-5 h-14 border-b border-border shrink-0">
         <h2 className="font-semibold text-sm">
           {isWeekly
-            ? `주간 리포트 · ${formatWeekRange(report.date, report.dateEnd)}`
-            : `일일 리포트 · ${formatDate(report.date)}`}
+            ? `${t("reports.weeklyReportTitle")} · ${formatWeekRange(report.date, report.dateEnd)}`
+            : `${t("reports.dailyReportTitle")} · ${formatDate(report.date)}`}
         </h2>
         <button
           onClick={onClose}
@@ -400,19 +404,20 @@ function DailyContent({
   diary: string;
   onDiaryChange: (val: string) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <>
       {/* 요약 */}
       <div className="flex items-center gap-3 text-sm">
         <span className="text-muted-foreground">
-          총 {tasks.length}건
+          {t("reports.totalCount", { count: tasks.length })}
         </span>
         <span className="text-green-600 font-medium">
-          {doneTasks.length}건 완료
+          {t("reports.doneCount", { count: doneTasks.length })}
         </span>
         {pendingTasks.length > 0 && (
           <span className="text-yellow-600">
-            {pendingTasks.length}건 미완료
+            {t("reports.pendingCount", { count: pendingTasks.length })}
           </span>
         )}
       </div>
@@ -421,7 +426,7 @@ function DailyContent({
       {doneTasks.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            완료된 태스크
+            {t("reports.completedTasksSection")}
           </h3>
           <div className="space-y-1">
             {doneTasks.map((t: any) => (
@@ -441,7 +446,7 @@ function DailyContent({
       {pendingTasks.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            미완료 태스크
+            {t("reports.pendingTasksSection")}
           </h3>
           <div className="space-y-1">
             {pendingTasks.map((t: any) => (
@@ -461,7 +466,7 @@ function DailyContent({
       {relationTasks.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            오늘 약속
+            {t("reports.todayAppointments")}
           </h3>
           <div className="space-y-1">
             {relationTasks.map((t: any) => (
@@ -477,19 +482,19 @@ function DailyContent({
       {/* 빈 상태 */}
       {tasks.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          <p className="text-sm">오늘 등록된 태스크가 없어요</p>
+          <p className="text-sm">{t("reports.noTasksToday")}</p>
         </div>
       )}
 
       {/* 일기 */}
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          일기 / 메모
+          {t("reports.diaryMemo")}
         </h3>
         <textarea
           value={diary}
           onChange={(e) => onDiaryChange(e.target.value)}
-          placeholder="오늘 하루를 기록해보세요..."
+          placeholder={t("reports.diaryPlaceholder")}
           rows={5}
           className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
         />
@@ -514,6 +519,7 @@ function WeeklyContent({
   onDiaryChange: (val: string) => void;
   onNextPlanChange: (val: string) => void;
 }) {
+  const { t } = useLanguage();
   const domainBalance: Record<string, { name: string; total: number; done: number }> = meta.domainBalance || {};
   const projectProgress: any[] = meta.projectProgress || [];
 
@@ -530,10 +536,10 @@ function WeeklyContent({
       {/* 주간 요약 */}
       <div className="flex items-center gap-4 text-sm">
         <span className="text-muted-foreground">
-          총 {meta.totalTasks ?? 0}건
+          {t("reports.totalCount", { count: meta.totalTasks ?? 0 })}
         </span>
         <span className="text-green-600 font-medium">
-          {meta.doneTasks ?? 0}건 완료
+          {t("reports.doneCount", { count: meta.doneTasks ?? 0 })}
         </span>
         {meta.completionRate !== undefined && (
           <span
@@ -546,7 +552,7 @@ function WeeklyContent({
                   : "bg-red-500/15 text-red-600"
             )}
           >
-            달성률 {meta.completionRate}%
+            {t("reports.completionRate", { rate: meta.completionRate })}
           </span>
         )}
       </div>
@@ -554,12 +560,12 @@ function WeeklyContent({
       {/* 회고 textarea */}
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          주간 회고
+          {t("reports.weeklyReview")}
         </h3>
         <textarea
           value={diary}
           onChange={(e) => onDiaryChange(e.target.value)}
-          placeholder="이번 주를 돌아보며..."
+          placeholder={t("reports.weeklyReviewPlaceholder")}
           rows={4}
           className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
         />
@@ -569,7 +575,7 @@ function WeeklyContent({
       {radarData.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            도메인별 활동 밸런스
+            {t("reports.domainBalance")}
           </h3>
           <div className="border border-border rounded-lg p-3">
             <ResponsiveContainer width="100%" height={250}>
@@ -585,7 +591,7 @@ function WeeklyContent({
                   axisLine={false}
                 />
                 <Radar
-                  name="태스크 수"
+                  name={t("reports.taskCount")}
                   dataKey="count"
                   stroke="#8b5cf6"
                   fill="#8b5cf6"
@@ -613,7 +619,7 @@ function WeeklyContent({
                     borderRadius: 8,
                     border: "1px solid #e5e5e5",
                   }}
-                  formatter={(value: number) => [`${value}건`, "태스크 수"]}
+                  formatter={(value: number) => [t("balance.countUnit", { count: value }), t("reports.taskCount")]}
                 />
               </RadarChart>
             </ResponsiveContainer>
@@ -625,7 +631,7 @@ function WeeklyContent({
       {Object.keys(domainBalance).length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            영역별 현황
+            {t("reports.domainStatus")}
           </h3>
           <div className="space-y-2">
             {Object.entries(domainBalance).map(([domainId, data]) => {
@@ -636,7 +642,7 @@ function WeeklyContent({
                   <span className="text-sm">{domain?.icon || "📂"}</span>
                   <span className="text-sm flex-1">{data.name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {data.done}/{data.total}건
+                    {t("reports.completedCount", { done: data.done, total: data.total })}
                   </span>
                   <span
                     className={cn(
@@ -657,7 +663,7 @@ function WeeklyContent({
       {projectProgress.length > 0 && (
         <div>
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-            프로젝트 진행
+            {t("reports.projectProgress")}
           </h3>
           <div className="space-y-3">
             {projectProgress.map((p: any) => {
@@ -686,12 +692,12 @@ function WeeklyContent({
       {/* 다음 주 계획 */}
       <div>
         <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-          다음 주 계획
+          {t("reports.nextWeekPlan")}
         </h3>
         <textarea
           value={nextPlan}
           onChange={(e) => onNextPlanChange(e.target.value)}
-          placeholder="다음 주에 집중할 것들..."
+          placeholder={t("reports.nextWeekPlaceholder")}
           rows={4}
           className="w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
         />

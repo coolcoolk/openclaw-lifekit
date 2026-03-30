@@ -23,7 +23,7 @@ switch (command) {
     break;
   }
   case "start":
-    await startCommand();
+    await startCommand(process.argv.slice(3));
     break;
   case "status":
     await statusCommand();

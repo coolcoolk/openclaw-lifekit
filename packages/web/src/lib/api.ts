@@ -153,6 +153,13 @@ export interface Report {
   updatedAt: string;
 }
 
+export interface AiStatus {
+  configured: boolean;
+  connected: boolean;
+  adapter: string | null;
+  gatewayUrl: string | null;
+}
+
 export interface Settings {
   profile: {
     name: string;
@@ -374,4 +381,5 @@ export const api = {
   getSettings: () => fetchJSON<Settings>("/settings"),
   updateSettings: (data: Partial<Settings>) =>
     fetchJSON<Settings>("/settings", { method: "PATCH", body: JSON.stringify(data) }),
+  getAiStatus: () => fetchJSON<AiStatus>("/settings/ai-status"),
 };

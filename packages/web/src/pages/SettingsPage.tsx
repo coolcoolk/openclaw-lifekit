@@ -45,7 +45,7 @@ function TimezoneSelect({ value, onChange, inputClass }: {
     </div>
   );
 }
-import { api, type Settings, type Area, type Domain } from "@/lib/api";
+import { api, type Settings, type AiStatus, type Area, type Domain } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   User,
@@ -129,12 +129,13 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
+  const [aiStatus, setAiStatus] = useState<AiStatus | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
 
   const PAGES = [
-    { value: "tasks", label: t("nav.calendar") === "Calendar" ? "Tasks" : "태스크" },
+    { value: "tasks", label: t("settings.tasks") },
     { value: "calendar", label: t("nav.calendar") },
     { value: "balance", label: t("nav.balance") },
     { value: "projects", label: t("nav.projects") },
@@ -144,6 +145,7 @@ export function SettingsPage() {
     api.getSettings().then(setSettings);
     api.getAreas().then(setAreas);
     api.getDomains().then(setDomains);
+    api.getAiStatus().then(setAiStatus).catch(() => setAiStatus({ configured: false, connected: false, adapter: null, gatewayUrl: null }));
   }, []);
 
   if (!settings) {
@@ -202,7 +204,7 @@ export function SettingsPage() {
       await fetch("/api/settings/reset", { method: "DELETE" });
       window.location.reload();
     } catch {
-      alert("초기화에 실패했습니다.");
+      alert(t("settings.resetFailed"));
     }
   };
 
@@ -272,10 +274,10 @@ export function SettingsPage() {
       </SectionCard>
 
       {/* 2. 브리핑/회고 시간 */}
-      <SectionCard icon={Clock} title="브리핑/회고 시간">
+      <SectionCard icon={Clock} title={t("settings.routineTime")}>
         <div className="space-y-4">
           <div>
-            <label className={labelClass}>모닝 브리핑</label>
+            <label className={labelClass}>{t("settings.morningBriefing")}</label>
             <input
               type="time"
               className={inputClass}
@@ -284,7 +286,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className={labelClass}>일일 회고</label>
+            <label className={labelClass}>{t("settings.dailyReview")}</label>
             <input
               type="time"
               className={inputClass}
@@ -293,7 +295,7 @@ export function SettingsPage() {
             />
           </div>
           <div>
-            <label className={labelClass}>주간 회고</label>
+            <label className={labelClass}>{t("settings.weeklyReview")}</label>
             <input
               type="time"
               className={inputClass}
@@ -306,13 +308,54 @@ export function SettingsPage() {
 
       {/* 3. AI */}
       <SectionCard icon={Bot} title="AI">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-          <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-          <div>
-            <p className="text-sm font-medium">OpenClaw 연결됨</p>
-            <p className="text-xs text-muted-foreground">아그(Claude Sonnet)가 LifeKit AI를 처리합니다</p>
+        {aiStatus === null ? (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="w-2 h-2 rounded-full bg-muted-foreground/30 shrink-0 animate-pulse" />
+            <p className="text-sm text-muted-foreground">{t("settings.aiChecking")}</p>
           </div>
-        </div>
+        ) : !aiStatus.configured ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted border border-border">
+              <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground font-medium">
+                  {t("settings.aiSetupRequired")}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {t("settings.aiNotConfigured")}
+                </p>
+              </div>
+            </div>
+            <div className="p-3 rounded-lg bg-muted/50 text-sm text-muted-foreground">
+              <p>{t("settings.aiSetupInstructions")}</p>
+              <code className="block mt-2 px-3 py-1.5 bg-background border border-border rounded font-mono text-xs">lifekit init</code>
+            </div>
+          </div>
+        ) : aiStatus.connected ? (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+            <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium">
+                {t("settings.aiConnected")}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t("settings.aiConnectedDesc")}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800">
+            <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-700 dark:text-red-400">
+                {t("settings.aiDisconnected")}
+              </p>
+              <p className="text-xs text-red-600/80 dark:text-red-500/80">
+                {t("settings.aiDisconnectedDesc", { adapter: aiStatus.adapter || "" })}
+              </p>
+            </div>
+          </div>
+        )}
       </SectionCard>
 
       {/* 4. 구글 캘린더 */}
@@ -344,11 +387,11 @@ export function SettingsPage() {
                 update("googleCalendar", "syncIntervalMin", Number(e.target.value))
               }
             >
-              <option value={1}>1{language === "ko" ? "분" : " min"}</option>
-              <option value={5}>5{language === "ko" ? "분" : " min"}</option>
-              <option value={15}>15{language === "ko" ? "분" : " min"}</option>
-              <option value={30}>30{language === "ko" ? "분" : " min"}</option>
-              <option value={60}>60{language === "ko" ? "분" : " min"}</option>
+              <option value={1}>1{t("settings.syncIntervalUnit")}</option>
+              <option value={5}>5{t("settings.syncIntervalUnit")}</option>
+              <option value={15}>15{t("settings.syncIntervalUnit")}</option>
+              <option value={30}>30{t("settings.syncIntervalUnit")}</option>
+              <option value={60}>60{t("settings.syncIntervalUnit")}</option>
             </select>
           </div>
         </div>
@@ -445,21 +488,21 @@ export function SettingsPage() {
       </SectionCard>
 
       {/* 데이터 관리 */}
-      <SectionCard icon={Database} title={language === "ko" ? "데이터 관리" : "Data Management"}>
+      <SectionCard icon={Database} title={t("settings.dataManagement")}>
         <div className="flex flex-col gap-3">
           <button
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
           >
             <Download size={14} />
-            {language === "ko" ? "설정 내보내기" : "Export Settings"}
+            {t("settings.exportSettings")}
           </button>
           <button
             onClick={handleReset}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/5 transition-colors"
           >
             <RotateCcw size={14} />
-            {language === "ko" ? "설정 초기화" : "Reset Settings"}
+            {t("settings.resetSettings")}
           </button>
         </div>
       </SectionCard>

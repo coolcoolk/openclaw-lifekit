@@ -22,9 +22,11 @@ import { useLanguage } from "@/contexts/LanguageContext";
 function BalanceRadarChart({
   balance,
   domains,
+  t,
 }: {
   balance: BalanceData[];
   domains: Domain[];
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const data = domains.map((d) => {
     const found = balance.find((b) => b.domainId === d.id);
@@ -38,10 +40,10 @@ function BalanceRadarChart({
 
   return (
     <div className="border border-border rounded-lg p-4 md:p-5 mb-6">
-      <h2 className="text-sm font-semibold mb-3">이번 주 활동 밸런스</h2>
+      <h2 className="text-sm font-semibold mb-3">{t("balance.weeklyActivityBalance")}</h2>
       {balance.length === 0 ? (
         <div className="h-48 flex items-center justify-center text-xs text-muted-foreground">
-          최근 7일 동안 완료된 태스크가 없습니다
+          {t("balance.noTasksWeek")}
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={300}>
@@ -57,7 +59,7 @@ function BalanceRadarChart({
               axisLine={false}
             />
             <Radar
-              name="완료 태스크"
+              name={t("balance.completedTasks")}
               dataKey="count"
               stroke="#8b5cf6"
               fill="#8b5cf6"
@@ -85,7 +87,7 @@ function BalanceRadarChart({
                 borderRadius: 8,
                 border: "1px solid #e5e5e5",
               }}
-              formatter={(value: number) => [`${value}건`, "완료 태스크"]}
+              formatter={(value: number) => [t("balance.countUnit", { count: value }), t("balance.completedTasks")]}
             />
           </RadarChart>
         </ResponsiveContainer>
@@ -98,9 +100,11 @@ function BalanceRadarChart({
 function AreaRow({
   area,
   xpData,
+  t,
 }: {
   area: Area;
   xpData?: AreaXp;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const isUnknown = area.satisfaction === null;
   const xp = xpData?.xp ?? 0;
@@ -114,7 +118,7 @@ function AreaRow({
         <span className="text-sm w-5 text-center">{area.icon}</span>
         <span className="text-sm flex-1 truncate">{area.name}</span>
         {isUnknown && (
-          <span className="text-[10px] text-muted-foreground">미시작</span>
+          <span className="text-[10px] text-muted-foreground">{t("balance.notStarted")}</span>
         )}
       </div>
       {!isUnknown && (
@@ -142,10 +146,12 @@ function DomainCard({
   domain,
   areas,
   xpMap,
+  t,
 }: {
   domain: Domain;
   areas: Area[];
   xpMap: Record<string, AreaXp>;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }) {
   const domainAreas = areas.filter((a) => a.domainId === domain.id);
 
@@ -161,6 +167,7 @@ function DomainCard({
             key={area.id}
             area={area}
             xpData={xpMap[area.id]}
+            t={t}
           />
         ))}
       </div>
@@ -214,7 +221,7 @@ export function BalancePage() {
       </div>
 
       {/* 레이더 차트 */}
-      <BalanceRadarChart balance={balance} domains={domains} />
+      <BalanceRadarChart balance={balance} domains={domains} t={t} />
 
       {/* 도메인별 영역 현황 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
@@ -224,6 +231,7 @@ export function BalancePage() {
             domain={domain}
             areas={areas}
             xpMap={xpMap}
+            t={t}
           />
         ))}
       </div>

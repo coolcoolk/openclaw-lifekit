@@ -43,7 +43,7 @@ const DEFAULT_SETTINGS = {
   dashboard: {
     defaultPage: "calendar",
     theme: "light" as const,
-    language: "ko" as const,
+    language: "en" as const,
   },
 };
 
@@ -523,21 +523,87 @@ export async function initCommand() {
   const tailscaleChoice: string = await new Select({
     name: "tailscale",
     message: isKo
-      ? "스마트폰에서도 LifeKit을 사용하시겠어요?\n  Tailscale을 연동하면 집 밖에서도 스마트폰으로 LifeKit에 접속할 수 있어요.\n  (Tailscale 앱을 기기에 미리 설치해주세요)"
-      : "Use LifeKit on your phone?\n  Tailscale lets you access LifeKit remotely from anywhere.\n  (Install the Tailscale app on your device first)",
+      ? `📱 스마트폰에서도 LifeKit을 사용하시겠어요?\n\n  Tailscale을 사용하면 집 밖에서도 스마트폰으로 LifeKit에 접속할 수 있어요.\n\n  작동 방식:\n  • 이 컴퓨터에서 서버를 실행 (bun run lifekit start)\n  • 스마트폰에 Tailscale 앱 설치 후 같은 계정으로 로그인\n  • 스마트폰 브라우저에서 Tailscale IP로 접속`
+      : `📱 Use LifeKit on your phone?\n\n  Tailscale lets you access LifeKit remotely from anywhere.\n\n  How it works:\n  • Run the server on this computer (bun run lifekit start)\n  • Install Tailscale app on your phone and log in with the same account\n  • Open the Tailscale IP in your phone's browser`,
     choices: isKo
       ? ["Tailscale 연동하기", "나중에 연동 (lifekit connect tailscale)"]
       : ["Connect Tailscale", "Later (lifekit connect tailscale)"],
   }).run();
 
   if (tailscaleChoice === "Tailscale 연동하기" || tailscaleChoice === "Connect Tailscale") {
-    const proc = Bun.spawn(["bun", "run", "lifekit", "connect", "tailscale"], {
-      cwd: PROJECT_ROOT,
-      stdout: "inherit",
-      stderr: "inherit",
-      stdin: "inherit",
-    });
-    await proc.exited;
+    // Tailscale IP 자동 확인
+    console.log(isKo
+      ? "\n     🔍 Tailscale IP 확인 중..."
+      : "\n     🔍 Checking Tailscale IP...");
+
+    let tailscaleIp = "";
+    try {
+      const tsProc = Bun.spawn(["tailscale", "ip", "-4"], {
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const tsOutput = await new Response(tsProc.stdout).text();
+      await tsProc.exited;
+      if (tsProc.exitCode === 0 && tsOutput.trim()) {
+        tailscaleIp = tsOutput.trim();
+      }
+    } catch {}
+
+    if (tailscaleIp) {
+      console.log(isKo
+        ? `     ✅ Tailscale IP: ${tailscaleIp}`
+        : `     ✅ Tailscale IP: ${tailscaleIp}`);
+
+      // config에 저장 (connect.ts 로직 재사용 패턴)
+      const configPath = resolve(homedir(), ".lifekit", "config.json");
+      try {
+        let cfg: Record<string, any> = {};
+        if (existsSync(configPath)) {
+          cfg = JSON.parse(readFileSync(configPath, "utf-8"));
+        }
+        cfg.tailscaleIp = tailscaleIp;
+        writeFileSync(configPath, JSON.stringify(cfg, null, 2));
+      } catch {}
+
+      const accessUrl = `http://${tailscaleIp}:5173`;
+      console.log(isKo
+        ? `
+     ✅ Tailscale 설정 완료!
+
+     📱 스마트폰 접속 준비:
+     1. 스마트폰에 Tailscale 앱 설치 (App Store / Google Play)
+     2. 같은 Tailscale 계정으로 로그인
+     3. 서버 시작: bun run lifekit start
+     4. 스마트폰 브라우저에서: ${accessUrl}
+
+     💡 홈 화면에 추가하면 앱처럼 사용할 수 있어요!`
+        : `
+     ✅ Tailscale setup complete!
+
+     📱 Phone access steps:
+     1. Install Tailscale app (App Store / Google Play)
+     2. Log in with the same Tailscale account
+     3. Start server: bun run lifekit start
+     4. Open on your phone: ${accessUrl}
+
+     💡 Add to home screen for an app-like experience!`);
+    } else {
+      console.log(isKo
+        ? `
+     ⚠️  Tailscale이 설치되지 않았거나 로그인되지 않았어요.
+
+     📋 설치 방법:
+     1. https://tailscale.com/download 에서 설치
+     2. tailscale up 실행 후 로그인
+     3. 완료 후 다시 실행: bun run lifekit connect tailscale`
+        : `
+     ⚠️  Tailscale is not installed or not logged in.
+
+     📋 Setup:
+     1. Install from https://tailscale.com/download
+     2. Run tailscale up and log in
+     3. Then run: bun run lifekit connect tailscale`);
+    }
   } else {
     console.log(isKo
       ? "     ⏭️  나중에 lifekit connect tailscale 으로 연동할 수 있어요."
@@ -629,6 +695,38 @@ export async function initCommand() {
     saveEnvFile(envLines);
   }
 
+  console.log("");
+
+  // ── 자동 실행 설정 ──
+  console.log(`  8️⃣  ${isKo ? "서버 자동 실행 설정" : "Auto-start Setup"}`);
+  const autoStartChoice: string = await new Select({
+    name: "autoStart",
+    message: isKo
+      ? "서버를 자동으로 실행할까요?\n  컴퓨터 시작 시 LifeKit 서버가 자동으로 켜져요."
+      : "Auto-start server?\n  LifeKit server will start automatically when your computer boots.",
+    choices: isKo
+      ? ["자동 실행 (권장)", "수동 실행 (bun run lifekit start)"]
+      : ["Auto-start (recommended)", "Manual (bun run lifekit start)"],
+  }).run();
+
+  const wantsAutoStart = autoStartChoice.includes("자동") || autoStartChoice.includes("Auto");
+
+  if (wantsAutoStart) {
+    try {
+      const { installDaemon } = await import("./start");
+      await installDaemon();
+      console.log(isKo
+        ? "\n  ✅ 서버가 백그라운드에서 실행 중입니다!"
+        : "\n  ✅ Server is running in the background!");
+    } catch (err: any) {
+      console.error(isKo
+        ? `\n  ⚠️  LaunchAgent 설정 실패: ${err.message}`
+        : `\n  ⚠️  LaunchAgent setup failed: ${err.message}`);
+      console.log(isKo
+        ? "     수동으로 실행해주세요: bun run lifekit start"
+        : "     Please start manually: bun run lifekit start");
+    }
+  }
   console.log("");
 
   // ── 완료 안내 ──

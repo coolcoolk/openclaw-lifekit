@@ -23,6 +23,7 @@ import { fashionRoutes } from "./routes/kits/fashion";
 import { syncGoogleCalendar } from "./services/googleCalendarSync";
 import { seedProjects } from "./db/seedProjects";
 import { startReportScheduler } from "./services/reportScheduler";
+import { startNotificationScheduler } from "./services/notificationScheduler";
 
 const app = new Hono();
 
@@ -126,17 +127,18 @@ if (!atCount || atCount.cnt === 0) {
 }
 
 // 프로젝트 시드 데이터 삽입 (데이터 없을 때만)
-seedProjects().catch((err) => console.error("[seed] 프로젝트 시드 실패:", err.message));
+// seedProjects().catch((err) => console.error("[seed] 프로젝트 시드 실패:", err.message));
 
 const port = Number(process.env.PORT) || 4000;
 console.log(`🧰 LifeKit server running on http://localhost:${port}`);
 
 // Google Calendar 양방향 동기화: 서버 시작 시 1회 + 5분 폴링
-syncGoogleCalendar()
-  .then((r) => console.log(`[sync] 초기 동기화: +${r.added} ~${r.updated} ↑${r.pushed}`))
-  .catch((err) => console.error("[sync] 초기 동기화 실패:", err.message));
+// 구글 캘린더 동기화 — .env 설정 후에만 활성화
+// syncGoogleCalendar()
+//   .then((r) => console.log(`[sync] 초기 동기화: +${r.added} ~${r.updated} ↑${r.pushed}`))
+//   .catch((err) => console.error("[sync] 초기 동기화 실패:", err.message));
 
-setInterval(() => {
+if (false) setInterval(() => {
   syncGoogleCalendar()
     .then((r) => console.log(`[sync] 폴링 동기화: +${r.added} ~${r.updated} ↑${r.pushed}`))
     .catch((err) => console.error("[sync] 폴링 동기화 실패:", err.message));
@@ -144,6 +146,9 @@ setInterval(() => {
 
 // 리포트 자동 생성 스케줄러
 startReportScheduler();
+
+// 알림 스케줄러 (리마인더, 브리핑, 일일/주간 회고)
+startNotificationScheduler();
 
 export default {
   port,

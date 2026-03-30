@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, type ProjectWithTasks, type Task, type Domain, type Kit } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -22,12 +23,14 @@ import {
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
 
-const STATUS_BADGE: Record<StatusKey, { label: string; class: string }> = {
-  active: { label: "진행 중", class: "bg-green-500/15 text-green-600" },
-  backlog: { label: "대기", class: "bg-blue-500/15 text-blue-600" },
-  paused: { label: "일시중단", class: "bg-yellow-500/15 text-yellow-600" },
-  completed: { label: "완료", class: "bg-gray-500/15 text-gray-500" },
-};
+function getStatusBadges(t: (key: string) => string): Record<StatusKey, { label: string; class: string }> {
+  return {
+    active: { label: t("projects.statusActive"), class: "bg-green-500/15 text-green-600" },
+    backlog: { label: t("projects.statusBacklog"), class: "bg-blue-500/15 text-blue-600" },
+    paused: { label: t("projects.statusPaused"), class: "bg-yellow-500/15 text-yellow-600" },
+    completed: { label: t("projects.statusCompleted"), class: "bg-gray-500/15 text-gray-500" },
+  };
+}
 
 const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
   P1: { label: "P1", class: "bg-red-500/15 text-red-600" },
@@ -50,6 +53,8 @@ function sortPriority(p: ProjectWithTasks): number {
 }
 
 export function ProjectsPage() {
+  const { t } = useLanguage();
+  const STATUS_BADGE = getStatusBadges(t);
   const [projects, setProjects] = useState<ProjectWithTasks[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
@@ -128,7 +133,7 @@ export function ProjectsPage() {
       grouped.set(domainId, {
         domain: {
           id: domainId,
-          name: p.domainName || "기타",
+          name: p.domainName || t("projects.other"),
           icon: p.domainIcon || "📂",
           color: p.domainColor || DOMAIN_COLORS["default"],
         },
@@ -144,7 +149,7 @@ export function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
-        로딩 중...
+        {t("projects.loading")}
       </div>
     );
   }
@@ -159,7 +164,7 @@ export function ProjectsPage() {
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
         >
           <ArrowLeft size={16} />
-          돌아가기
+          {t("projects.goBack")}
         </button>
         <div className="flex items-center gap-2 mb-6">
           <PackageCheck size={20} className="text-green-600" />
@@ -169,7 +174,7 @@ export function ProjectsPage() {
           <Dashboard />
         ) : (
           <div className="border border-dashed border-border rounded-lg p-8 text-center">
-            <p className="text-sm text-muted-foreground">이 Kit의 대시보드가 아직 준비되지 않았어요</p>
+            <p className="text-sm text-muted-foreground">{t("projects.kitDashboardNotReady")}</p>
           </div>
         )}
       </div>
@@ -181,16 +186,16 @@ export function ProjectsPage() {
       {/* ── 활성화된 Kit 섹션 ── */}
       <div className="mb-8">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
-          📦 활성화된 Kit
+          {t("projects.activatedKits")}
         </h2>
         {installedKits.length === 0 ? (
           <div className="border border-dashed border-border rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-3">아직 활성화된 Kit이 없어요</p>
+            <p className="text-sm text-muted-foreground mb-3">{t("projects.noActivatedKits")}</p>
             <button
               onClick={() => setShowBrowseKits(true)}
               className="text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              Kit 둘러보기
+              {t("projects.browseKits")}
             </button>
           </div>
         ) : (
@@ -225,7 +230,7 @@ export function ProjectsPage() {
             className="flex items-center gap-1.5 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors mb-3"
           >
             {showBrowseKits ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-            🔍 Kit 둘러보기 ({availableKits.length})
+            {t("projects.browseKitsCount", { count: availableKits.length })}
           </button>
           {showBrowseKits && (
             <div className="space-y-2">
@@ -247,7 +252,7 @@ export function ProjectsPage() {
                       disabled={installing === kit.id}
                       className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
                     >
-                      {installing === kit.id ? "..." : "활성화"}
+                      {installing === kit.id ? "..." : t("projects.activate")}
                     </button>
                   </div>
                   {kit.guide && (
@@ -264,13 +269,13 @@ export function ProjectsPage() {
 
       {/* ── 프로젝트 섹션 ── */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl md:text-2xl font-bold">🎯 프로젝트</h2>
+        <h2 className="text-xl md:text-2xl font-bold">{t("projects.projectTitle")}</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus size={16} />
-          프로젝트
+          {t("projects.project")}
         </button>
       </div>
 
@@ -297,7 +302,7 @@ export function ProjectsPage() {
                     color: domain.color,
                   }}
                 >
-                  {activeCount}개 진행 중
+                  {t("projects.activeCount", { count: activeCount })}
                 </span>
               )}
             </div>
@@ -325,7 +330,7 @@ export function ProjectsPage() {
                     className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
                   >
                     {showCompleted ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                    완료됨 ({completedProjects.length})
+                    {t("projects.completedCount", { count: completedProjects.length })}
                   </button>
                   {showCompleted && (
                     <div className="space-y-2 mt-1">
@@ -355,7 +360,7 @@ export function ProjectsPage() {
       {projects.length === 0 && (
         <div className="text-center py-16 text-muted-foreground">
           <p className="text-lg mb-2">🎯</p>
-          <p className="text-sm">프로젝트가 없어요. 위에서 추가해보세요!</p>
+          <p className="text-sm">{t("projects.noProjects")}</p>
         </div>
       )}
 
@@ -392,6 +397,8 @@ function ProjectCard({
   domainColor: string;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
+  const STATUS_BADGE = getStatusBadges(t);
   const routine = isRoutineProject(p);
   const progress = p.totalTasks > 0 ? (p.doneTasks / p.totalTasks) * 100 : 0;
   const remaining = p.totalTasks - p.doneTasks;
@@ -413,7 +420,7 @@ function ProjectCard({
             <span className="text-sm font-medium truncate">{p.name}</span>
             {routine && (
               <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-purple-500/15 text-purple-500 font-medium">
-                루틴
+                {t("projects.routine")}
               </span>
             )}
             <span className={cn("shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium", badge.class)}>
@@ -449,7 +456,7 @@ function ProjectCard({
 
           {!routine && remaining > 0 && (
             <p className="text-xs text-muted-foreground mt-1">
-              {remaining}개 태스크 남음
+              {t("projects.tasksRemaining", { count: remaining })}
             </p>
           )}
         </div>
@@ -554,6 +561,8 @@ function ProjectDetailContent({
   onUpdate: (id: string, data: Partial<ProjectWithTasks>) => void;
   onTasksChanged: () => void;
 }) {
+  const { t } = useLanguage();
+  const STATUS_BADGE = getStatusBadges(t);
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || "");
   const [status, setStatus] = useState<StatusKey>((project.status as StatusKey) || "active");
@@ -659,7 +668,7 @@ function ProjectDetailContent({
             onChange={(e) => setName(e.target.value)}
             onBlur={() => autoSave("name", name)}
             className="font-semibold text-sm bg-transparent border-none outline-none flex-1 min-w-0 hover:bg-muted/50 focus:bg-muted/50 rounded px-1 py-0.5"
-            placeholder="프로젝트 이름"
+            placeholder={t("projects.projectName")}
           />
         </div>
         <button
@@ -687,7 +696,7 @@ function ProjectDetailContent({
         )}
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground w-16 shrink-0">상태</span>
+          <span className="text-xs text-muted-foreground w-16 shrink-0">{t("projects.status")}</span>
           <div className="flex gap-1.5">
             {(Object.keys(STATUS_BADGE) as StatusKey[]).map((key) => (
               <button
@@ -715,7 +724,7 @@ function ProjectDetailContent({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             onBlur={() => autoSave("description", description)}
-            placeholder="설명 추가"
+            placeholder={t("projects.addDescription")}
             rows={3}
             className={`${inputClass} resize-none`}
           />
@@ -731,14 +740,14 @@ function ProjectDetailContent({
               autoSave("targetDate", e.target.value);
             }}
             className={inputClass}
-            placeholder="목표 완료일"
+            placeholder={t("projects.targetDate")}
           />
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>진행률</span>
-            <span>{project.doneTasks}/{project.totalTasks} 완료</span>
+            <span>{t("projects.progress")}</span>
+            <span>{t("projects.progressComplete", { done: project.doneTasks, total: project.totalTasks })}</span>
           </div>
           <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
@@ -755,18 +764,18 @@ function ProjectDetailContent({
 
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">태스크</h3>
+            <h3 className="text-sm font-semibold">{t("projects.tasksSection")}</h3>
             <button
               onClick={() => setShowNewTask(true)}
               className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
             >
               <Plus size={14} />
-              태스크 추가
+              {t("projects.addTask")}
             </button>
           </div>
 
           {loadingTasks ? (
-            <p className="text-xs text-muted-foreground py-4 text-center">로딩 중...</p>
+            <p className="text-xs text-muted-foreground py-4 text-center">{t("projects.loading")}</p>
           ) : (
             <div className="space-y-1">
               {showNewTask && (
@@ -783,7 +792,7 @@ function ProjectDetailContent({
                     onBlur={() => {
                       if (!newTaskTitle.trim()) { setShowNewTask(false); setNewTaskTitle(""); }
                     }}
-                    placeholder="새 태스크 제목"
+                    placeholder={t("projects.newTaskTitle")}
                     className="flex-1 text-sm bg-transparent border-none outline-none"
                   />
                 </div>
@@ -796,7 +805,7 @@ function ProjectDetailContent({
               {doneTasks.length > 0 && (
                 <>
                   <p className="text-[10px] text-muted-foreground mt-3 mb-1 uppercase tracking-wide">
-                    완료 ({doneTasks.length})
+                    {t("projects.completedTasksCount", { count: doneTasks.length })}
                   </p>
                   {doneTasks.map((task) => (
                     <TaskRow key={task.id} task={task} onToggle={() => handleToggleTask(task)} />
@@ -806,7 +815,7 @@ function ProjectDetailContent({
 
               {tasks.length === 0 && !showNewTask && (
                 <p className="text-xs text-muted-foreground text-center py-4">
-                  아직 태스크가 없어요
+                  {t("projects.noTasksYet")}
                 </p>
               )}
             </div>
@@ -819,6 +828,7 @@ function ProjectDetailContent({
 
 // ── 태스크 행 (모바일용 - 상세 정보 포함) ──
 function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
+  const { t } = useLanguage();
   const isDone = task.status === "done";
   const priorityBadge = PRIORITY_BADGE[task.priority];
 
@@ -860,7 +870,7 @@ function TaskRow({ task, onToggle }: { task: Task; onToggle: () => void }) {
           {task.estimatedMinutes && (
             <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
               <Clock size={9} />
-              {task.estimatedMinutes}분
+              {t("projects.minutes", { min: task.estimatedMinutes })}
             </span>
           )}
           {task.dueDate && (
@@ -916,6 +926,7 @@ function CreateProjectModal({
   onClose: () => void;
   onCreate: (data: { name: string; description: string; domainAreaId: string }) => void;
 }) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
@@ -942,7 +953,7 @@ function CreateProjectModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">새 프로젝트</h2>
+          <h2 className="text-lg font-semibold">{t("projects.newProject")}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
             <X size={18} />
           </button>
@@ -952,7 +963,7 @@ function CreateProjectModal({
           <input
             ref={nameRef}
             type="text"
-            placeholder="프로젝트 이름"
+            placeholder={t("projects.projectName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -963,7 +974,7 @@ function CreateProjectModal({
             onChange={(e) => setSelectedDomain(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
-            <option value="">도메인 선택 (선택사항)</option>
+            <option value="">{t("projects.selectDomain")}</option>
             {domains.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.icon} {d.name}
@@ -972,7 +983,7 @@ function CreateProjectModal({
           </select>
 
           <textarea
-            placeholder="설명 (선택사항)"
+            placeholder={t("projects.descriptionOptional")}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
@@ -985,14 +996,14 @@ function CreateProjectModal({
               onClick={onClose}
               className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              취소
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
               disabled={!name.trim()}
               className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              생성
+              {t("calendar.create")}
             </button>
           </div>
         </form>
