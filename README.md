@@ -4,6 +4,22 @@
 
 OpenClaw, Perplexity Computer, 또는 Claude와 연결해서 쓰는 로컬 라이프 관리 시스템.
 
+## Quick Install
+
+**macOS + bun 필요**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/coolcoolk/openclaw-lifekit/main/install.sh | bash
+```
+
+또는 수동:
+```bash
+git clone https://github.com/coolcoolk/openclaw-lifekit ~/lifekit
+cd ~/lifekit
+bun install
+bun run lifekit init
+```
+
 ## 특징
 - 로컬 SQLite DB (데이터가 내 기기 밖으로 안 나감)
 - 7도메인 18영역 온보딩 → AI가 내 삶의 컨텍스트 파악
