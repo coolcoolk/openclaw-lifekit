@@ -1097,7 +1097,7 @@ export function CalendarPage() {
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null);
   const [nowLineTop, setNowLineTop] = useState<number | null>(null);
   const isMobile = useIsMobile();
-  const { language } = useLanguage();
+  const { t, language } = useLanguage();
   const [currentView, setCurrentView] = useState<string>("timeGridWeek");
   const [syncing, setSyncing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);

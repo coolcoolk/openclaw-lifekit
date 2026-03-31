@@ -47,6 +47,7 @@ function TimezoneSelect({ value, onChange, inputClass }: {
 }
 import { api, type Settings, type AiStatus, type Area, type Domain } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { OnboardingModal } from "@/components/OnboardingModal";
 import {
   User,
   Clock,
@@ -66,6 +67,7 @@ import {
   Eye,
   EyeOff,
   Globe,
+  Sparkles,
 } from "lucide-react";
 
 const MBTI_TYPES = [
@@ -133,6 +135,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   const PAGES = [
     { value: "tasks", label: t("settings.tasks") },
@@ -302,6 +305,21 @@ export function SettingsPage() {
               value={(settings.routine as any).weeklyReviewTime ?? "21:00"}
               onChange={(e) => update("routine", "weeklyReviewTime" as any, e.target.value)}
             />
+          </div>
+          <div>
+            <label className={labelClass}>{t("settings.weeklyReviewDay")}</label>
+            <select
+              className={inputClass}
+              value={(settings.routine as any).weeklyReviewDay ?? 0}
+              onChange={(e) => update("routine", "weeklyReviewDay" as any, Number(e.target.value))}
+            >
+              {(language === "ko"
+                ? ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"]
+                : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+              ).map((day, i) => (
+                <option key={i} value={i}>{day}</option>
+              ))}
+            </select>
           </div>
         </div>
       </SectionCard>
@@ -491,6 +509,13 @@ export function SettingsPage() {
       <SectionCard icon={Database} title={t("settings.dataManagement")}>
         <div className="flex flex-col gap-3">
           <button
+            onClick={() => setShowOnboarding(true)}
+            className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+          >
+            <Sparkles size={14} />
+            온보딩 다시 시작
+          </button>
+          <button
             onClick={handleExport}
             className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
           >
@@ -506,6 +531,11 @@ export function SettingsPage() {
           </button>
         </div>
       </SectionCard>
+
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <OnboardingModal onComplete={() => setShowOnboarding(false)} />
+      )}
     </div>
   );
 }

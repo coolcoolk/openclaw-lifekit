@@ -101,7 +101,7 @@ function loadKits(): KitMeta[] {
   return kits;
 }
 
-// ── Kit 설치 ──
+// ── Kit 설치 (서버 API 호출) ──
 async function installKits(kitIds: string[], language: string): Promise<void> {
   const isKo = language === "ko";
   if (kitIds.length === 0) {
@@ -143,53 +143,44 @@ async function installKits(kitIds: string[], language: string): Promise<void> {
   }
 }
 
-// ── AI 연결 테스트 ──
-async function testAiConnection(adapter: string, language: string): Promise<{ envLines: string[] }> {
+// ── AI 연결 테스트 (OpenClaw only) ──
+async function testAiConnection(language: string): Promise<{ envLines: string[] }> {
   const isKo = language === "ko";
   const envLines: string[] = [];
 
-  if (adapter === "openclaw") {
-    console.log(isKo ? "\n  🔗 OpenClaw 연결 설정" : "\n  🔗 OpenClaw Connection Setup");
+  console.log(isKo ? "\n  🔗 OpenClaw 연결 설정" : "\n  🔗 OpenClaw Connection Setup");
+  console.log(isKo
+    ? "     OpenClaw 게이트웨이에 연결합니다."
+    : "     Connecting to OpenClaw gateway.");
 
-    // OpenClaw 게이트웨이 자동 감지
-    const detectedPorts: number[] = [];
-    for (const port of [18789, 18790, 18788, 3000]) {
-      try {
-        const res = await fetch(`http://localhost:${port}/`, { signal: AbortSignal.timeout(1000) });
-        if (res.ok) {
-          const body = await res.text();
-          if (body.toLowerCase().includes("openclaw")) detectedPorts.push(port);
-        }
-      } catch {}
-    }
-
-    let gatewayUrl: string;
-    if (detectedPorts.length > 0) {
-      const portChoices = [
-        ...detectedPorts.map((p) => `localhost:${p}`),
-        isKo ? "직접 입력" : "Enter manually",
-      ];
-
-      const portSelection: string = await new Select({
-        name: "port",
-        message: isKo ? "OpenClaw 감지됨" : "OpenClaw detected",
-        choices: portChoices,
-      }).run();
-
-      if (portSelection.startsWith("localhost:")) {
-        gatewayUrl = `http://${portSelection}`;
-      } else {
-        const portInput: string = await new Input({
-          name: "port",
-          message: "Port",
-          initial: "18789",
-        }).run();
-        gatewayUrl = `http://localhost:${portInput}`;
+  // OpenClaw 게이트웨이 자동 감지
+  const detectedPorts: number[] = [];
+  for (const port of [18789, 18790, 18788, 3000]) {
+    try {
+      const res = await fetch(`http://localhost:${port}/`, { signal: AbortSignal.timeout(1000) });
+      if (res.ok) {
+        const body = await res.text();
+        if (body.toLowerCase().includes("openclaw")) detectedPorts.push(port);
       }
+    } catch {}
+  }
+
+  let gatewayUrl: string;
+  if (detectedPorts.length > 0) {
+    const portChoices = [
+      ...detectedPorts.map((p) => `localhost:${p}`),
+      isKo ? "직접 입력" : "Enter manually",
+    ];
+
+    const portSelection: string = await new Select({
+      name: "port",
+      message: isKo ? "OpenClaw 감지됨" : "OpenClaw detected",
+      choices: portChoices,
+    }).run();
+
+    if (portSelection.startsWith("localhost:")) {
+      gatewayUrl = `http://${portSelection}`;
     } else {
-      console.log(isKo
-        ? "     ⚠️  OpenClaw 게이트웨이를 찾을 수 없어요. 실행 중인지 확인해주세요."
-        : "     ⚠️  No OpenClaw gateway detected. Is it running?");
       const portInput: string = await new Input({
         name: "port",
         message: "Port",
@@ -197,75 +188,61 @@ async function testAiConnection(adapter: string, language: string): Promise<{ en
       }).run();
       gatewayUrl = `http://localhost:${portInput}`;
     }
-
-    const gatewayToken: string = await new Password({
-      name: "token",
-      message: "Gateway Token",
+  } else {
+    console.log(isKo
+      ? "     ⚠️  OpenClaw 게이트웨이를 찾을 수 없어요. 실행 중인지 확인해주세요."
+      : "     ⚠️  No OpenClaw gateway detected. Is it running?");
+    const portInput: string = await new Input({
+      name: "port",
+      message: "Port",
+      initial: "18789",
     }).run();
+    gatewayUrl = `http://localhost:${portInput}`;
+  }
 
-    // 에이전트 이름 자동 조회
-    try {
-      const nameRes = await fetch(`${gatewayUrl}/v1/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gatewayToken}` },
-        body: JSON.stringify({ model: "openclaw:main", messages: [{ role: "user", content: "What is your name? Reply in one word only." }], max_tokens: 20 }),
-        signal: AbortSignal.timeout(5000),
-      });
-      if (nameRes.ok) {
-        const nameData = await nameRes.json() as any;
-        const agentName = nameData?.choices?.[0]?.message?.content?.trim();
-        if (agentName) console.log(`     🤖 Agent: ${agentName}`);
-      }
-    } catch {}
+  const gatewayToken: string = await new Password({
+    name: "token",
+    message: "Gateway Token",
+  }).run();
 
-    envLines.push(`LIFEKIT_AI_ADAPTER=openclaw`);
-    envLines.push(`OPENCLAW_GATEWAY_URL=${gatewayUrl}`);
-    envLines.push(`OPENCLAW_GATEWAY_TOKEN=${gatewayToken}`);
-    envLines.push(`OPENCLAW_AGENT_ID=main`);
-
-    // 연결 테스트
-    console.log(isKo ? "\n     🧪 연결 테스트 중..." : "\n     🧪 Testing connection...");
-    try {
-      const resp = await fetch(`${gatewayUrl}/`, {
-        headers: gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {},
-        signal: AbortSignal.timeout(5000),
-      });
-      if (resp.ok) {
-        console.log(isKo ? "     ✅ OpenClaw 연결 성공!" : "     ✅ OpenClaw connected!");
-      } else {
-        console.log(isKo
-          ? `     ⚠️  응답 코드: ${resp.status} — 서버 실행 후 다시 확인해주세요.`
-          : `     ⚠️  Response: ${resp.status} — please check after starting the server.`);
-      }
-    } catch (e: any) {
-      console.log(isKo
-        ? `     ⚠️  연결 실패 (${e.message}) — 서버 실행 후 다시 확인해주세요.`
-        : `     ⚠️  Connection failed (${e.message}) — please check after starting the server.`);
+  // 에이전트 이름 자동 조회
+  try {
+    const nameRes = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${gatewayToken}` },
+      body: JSON.stringify({ model: "openclaw:main", messages: [{ role: "user", content: "What is your name? Reply in one word only." }], max_tokens: 20 }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (nameRes.ok) {
+      const nameData = await nameRes.json() as any;
+      const agentName = nameData?.choices?.[0]?.message?.content?.trim();
+      if (agentName) console.log(`     🤖 Agent: ${agentName}`);
     }
-  } else if (adapter === "anthropic") {
-    console.log(isKo ? "\n  🔗 Anthropic API 설정" : "\n  🔗 Anthropic API Setup");
-    const apiKey: string = await new Password({
-      name: "apiKey",
-      message: "API Key (sk-ant-...)",
-    }).run();
+  } catch {}
 
-    envLines.push(`LIFEKIT_AI_ADAPTER=anthropic`);
-    envLines.push(`ANTHROPIC_API_KEY=${apiKey}`);
-  } else if (adapter === "ollama") {
-    const ollamaModel: string = await new Input({
-      name: "model",
-      message: isKo ? "Ollama 모델" : "Ollama model",
-      initial: "llama3.2",
-    }).run();
-    const ollamaUrl: string = await new Input({
-      name: "url",
-      message: "Ollama URL",
-      initial: "http://localhost:11434",
-    }).run();
+  envLines.push(`LIFEKIT_AI_ADAPTER=openclaw`);
+  envLines.push(`OPENCLAW_GATEWAY_URL=${gatewayUrl}`);
+  envLines.push(`OPENCLAW_GATEWAY_TOKEN=${gatewayToken}`);
+  envLines.push(`OPENCLAW_AGENT_ID=main`);
 
-    envLines.push(`LIFEKIT_AI_ADAPTER=ollama`);
-    envLines.push(`OLLAMA_MODEL=${ollamaModel}`);
-    envLines.push(`OLLAMA_BASE_URL=${ollamaUrl}`);
+  // 연결 테스트
+  console.log(isKo ? "\n     🧪 연결 테스트 중..." : "\n     🧪 Testing connection...");
+  try {
+    const resp = await fetch(`${gatewayUrl}/`, {
+      headers: gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {},
+      signal: AbortSignal.timeout(5000),
+    });
+    if (resp.ok) {
+      console.log(isKo ? "     ✅ OpenClaw 연결 성공!" : "     ✅ OpenClaw connected!");
+    } else {
+      console.log(isKo
+        ? `     ⚠️  응답 코드: ${resp.status} — 서버 실행 후 다시 확인해주세요.`
+        : `     ⚠️  Response: ${resp.status} — please check after starting the server.`);
+    }
+  } catch (e: any) {
+    console.log(isKo
+      ? `     ⚠️  연결 실패 (${e.message}) — 서버 실행 후 다시 확인해주세요.`
+      : `     ⚠️  Connection failed (${e.message}) — please check after starting the server.`);
   }
 
   return { envLines };
@@ -335,21 +312,39 @@ function saveEnvFile(envLines: string[]) {
   console.log(`  💾 환경변수 저장: ${SERVER_ENV_PATH}`);
 }
 
+// ── 서버 시작/재시작 ──
+async function ensureServerRunning(isKo: boolean): Promise<void> {
+  // 기존 서버 프로세스 확인 및 종료
+  try {
+    const lsof = Bun.spawnSync(["lsof", "-ti", ":4000"], { stdout: "pipe" });
+    const pids = new TextDecoder().decode(lsof.stdout).trim();
+    if (pids) {
+      console.log(isKo
+        ? "     🔄 기존 서버 프로세스 종료 중..."
+        : "     🔄 Stopping existing server...");
+      for (const pid of pids.split("\n")) {
+        try { process.kill(parseInt(pid), "SIGTERM"); } catch {}
+      }
+      // 잠깐 대기
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+  } catch {}
+}
+
 // ── 메인 init 커맨드 ──
 // 다국어 텍스트
 const T = {
   ko: {
     title: "🧰 LifeKit 초기 설정",
     envCheck: "1️⃣  환경 확인",
-    basicInfo: "2️⃣  기본 정보",
-    timezoneAuto: "타임존: %s (자동 감지)",
-    aiAdapter: "3️⃣  AI 어댑터 선택",
-    adapterPrompt: "AI 어댑터 선택",
-    kitSelect: "4️⃣  Kit 선택",
+    aiAdapter: "2️⃣  AI 연결 설정",
+    reviewTime: "3️⃣  브리핑/회고 시간 설정",
+    weeklyReview: "4️⃣  주간 회고 요일 선택",
+    autoStart: "5️⃣  서버 자동 실행 설정",
+    googleCalStep: "6️⃣  구글 캘린더 연동",
+    tailscaleStep: "7️⃣  원격 접속 (Tailscale)",
+    kitSelect: "8️⃣  Kit 선택 + 설치",
     kitNone: "Kit이 없어요",
-    googleCalStep: "5️⃣  구글 캘린더 연동",
-    tailscaleStep: "6️⃣  원격 접속 (Tailscale)",
-    reviewTime: "7️⃣  회고 시간 설정",
     briefingPrompt: "모닝 브리핑 시간 (HH:MM)",
     reviewPrompt: "일일 회고 시간 (HH:MM)",
     weeklyReviewPrompt: "주간 회고 시간 (HH:MM)",
@@ -365,15 +360,14 @@ const T = {
   en: {
     title: "🧰 LifeKit Setup",
     envCheck: "1️⃣  Environment Check",
-    basicInfo: "2️⃣  Basic Info",
-    timezoneAuto: "Timezone: %s (auto-detected)",
-    aiAdapter: "3️⃣  AI Adapter",
-    adapterPrompt: "AI Adapter",
-    kitSelect: "4️⃣  Select Kits",
+    aiAdapter: "2️⃣  AI Connection",
+    reviewTime: "3️⃣  Briefing/Review Schedule",
+    weeklyReview: "4️⃣  Weekly Review Day",
+    autoStart: "5️⃣  Auto-start Setup",
+    googleCalStep: "6️⃣  Google Calendar",
+    tailscaleStep: "7️⃣  Remote Access (Tailscale)",
+    kitSelect: "8️⃣  Kit Selection + Install",
     kitNone: "No kits found",
-    googleCalStep: "5️⃣  Google Calendar",
-    tailscaleStep: "6️⃣  Remote Access (Tailscale)",
-    reviewTime: "7️⃣  Review Schedule",
     briefingPrompt: "Morning briefing time (HH:MM)",
     reviewPrompt: "Daily review time (HH:MM)",
     weeklyReviewPrompt: "Weekly review time (HH:MM)",
@@ -389,7 +383,7 @@ const T = {
 };
 
 export async function initCommand() {
-  // 1. 언어 선택
+  // ── 1. 언어 선택 ──
   const language: string = await new Select({
     name: "language",
     message: "Language / 언어",
@@ -407,90 +401,169 @@ export async function initCommand() {
   ─────────────────────
   `);
 
-  // 2. 환경 체크
+  // 환경 체크
   console.log(`  ${t.envCheck}`);
   const bunVersion = Bun.version;
   console.log(`     Bun: v${bunVersion} ✅`);
-  console.log("");
-
-  // 3. 기본 정보
-  console.log(`  ${t.basicInfo}`);
-  const name = ""; // 에이전트 연결 후 온보딩 시 설정
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  console.log(`     ${t.timezoneAuto.replace("%s", timezone)}`);
-  const dataDir = "~/.lifekit/";
+  console.log(`     ${isKo ? "타임존" : "Timezone"}: ${timezone} ✅`);
   console.log("");
 
-  // 4. 데이터 디렉토리 생성
+  // 데이터 디렉토리 생성
+  const dataDir = "~/.lifekit/";
   const resolvedDataDir = dataDir.replace("~", homedir());
   if (!existsSync(resolvedDataDir)) {
     mkdirSync(resolvedDataDir, { recursive: true });
   }
 
-  // 5. AI 어댑터 선택
+  // ── 2. AI 어댑터 설정 (OpenClaw only) → .env 저장 ──
   console.log(`  ${t.aiAdapter}`);
-  const adapterChoiceMap: Record<string, string> = {
-    "OpenClaw (추천)": "openclaw",
-    "OpenClaw (recommended)": "openclaw",
-    "Anthropic": "anthropic",
-    "Ollama": "ollama",
-    "Manual": "manual",
+  const aiResult = await testAiConnection(language);
+  const envLines = aiResult.envLines;
+
+  // .env 파일 즉시 저장
+  if (envLines.length > 0) {
+    saveEnvFile(envLines);
+  }
+  console.log("");
+
+  // ── 3. 브리핑/회고 시간 설정 ──
+  console.log(`  ${t.reviewTime}`);
+  const briefingTime: string = await new Input({
+    name: "briefingTime",
+    message: t.briefingPrompt,
+    initial: "08:00",
+  }).run();
+  const reviewTime: string = await new Input({
+    name: "reviewTime",
+    message: t.reviewPrompt,
+    initial: "22:00",
+  }).run();
+  console.log("");
+
+  // ── 4. 주간 회고 요일 선택 ──
+  console.log(`  ${t.weeklyReview}`);
+  const dayChoices = isKo
+    ? [
+        { name: "0", message: "일요일 (권장) ★" },
+        { name: "1", message: "월요일" },
+        { name: "2", message: "화요일" },
+        { name: "3", message: "수요일" },
+        { name: "4", message: "목요일" },
+        { name: "5", message: "금요일" },
+        { name: "6", message: "토요일" },
+      ]
+    : [
+        { name: "0", message: "Sunday (recommended) ★" },
+        { name: "1", message: "Monday" },
+        { name: "2", message: "Tuesday" },
+        { name: "3", message: "Wednesday" },
+        { name: "4", message: "Thursday" },
+        { name: "5", message: "Friday" },
+        { name: "6", message: "Saturday" },
+      ];
+
+  const weeklyReviewDayStr: string = await new Select({
+    name: "weeklyReviewDay",
+    message: isKo ? "주간 회고 요일 (일요일 권장)" : "Weekly review day (Sunday recommended)",
+    choices: dayChoices,
+  }).run();
+  const weeklyReviewDay = parseInt(weeklyReviewDayStr, 10);
+
+  const weeklyReviewTime: string = await new Input({
+    name: "weeklyReviewTime",
+    message: t.weeklyReviewPrompt,
+    initial: "21:00",
+  }).run();
+  console.log("");
+
+  // ── 저장: config.json + settings.json ──
+  const name = ""; // 에이전트 연결 후 온보딩 시 설정
+
+  if (!existsSync(LIFEKIT_DIR)) {
+    mkdirSync(LIFEKIT_DIR, { recursive: true });
+  }
+
+  const config: Record<string, any> = {
+    name,
+    language,
+    timezone,
+    dataDir,
+    adapter: "openclaw",
+    kits: [],
+    createdAt: new Date().toISOString(),
   };
 
-  const adapterLabel: string = await new Select({
-    name: "adapter",
-    message: t.adapterPrompt,
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+  console.log(`  💾 설정 저장: ${CONFIG_PATH}`);
+
+  saveSettingsJson({
+    name,
+    timezone,
+    language,
+    briefingTime,
+    reviewTime,
+    weeklyReviewTime,
+    weeklyReviewDay,
+  });
+  console.log("");
+
+  // ── 5. 서버 자동 실행 설정 → LaunchAgent 등록 + 서버 시작/재시작 ──
+  console.log(`  ${t.autoStart}`);
+  const autoStartChoice: string = await new Select({
+    name: "autoStart",
+    message: isKo
+      ? "서버를 자동으로 실행할까요?\n  컴퓨터 시작 시 LifeKit 서버가 자동으로 켜져요."
+      : "Auto-start server?\n  LifeKit server will start automatically when your computer boots.",
     choices: isKo
-      ? ["OpenClaw (추천)", "Anthropic", "Ollama", "Manual"]
-      : ["OpenClaw (recommended)", "Anthropic", "Ollama", "Manual"],
+      ? ["자동 실행 (권장)", "수동 실행 (bun run lifekit start)"]
+      : ["Auto-start (recommended)", "Manual (bun run lifekit start)"],
   }).run();
 
-  const adapter = adapterChoiceMap[adapterLabel] || "openclaw";
-  console.log(`     → ${adapter}`);
+  const wantsAutoStart = autoStartChoice.includes("자동") || autoStartChoice.includes("Auto");
 
-  // AI 연결 테스트 + .env 생성
-  let envLines: string[] = [];
-  if (adapter !== "manual") {
-    const aiResult = await testAiConnection(adapter, language);
-    envLines = aiResult.envLines;
-  }
-  console.log("");
-
-  // 6. Kit 선택
-  const kits = loadKits();
-  let selectedKitIds: string[] = [];
-  if (kits.length > 0) {
-    console.log(`  ${t.kitSelect}`);
-    selectedKitIds = await new MultiSelect({
-      name: "kits",
-      message: isKo
-        ? "사용할 Kit을 선택해주세요 (나중에 프로젝트 탭에서 언제든 추가할 수 있어요)\n  스페이스: 선택/해제 | 엔터: 확인 (선택 없이 엔터 시 skip)"
-        : "Select Kits (you can add more later in the project tab)\n  Space: toggle | Enter: confirm (enter without selection to skip)",
-      choices: kits.map((k) => {
-        const emoji = KIT_EMOJI[k.id] || "📦";
-        return {
-          name: k.id,
-          message: `${emoji} ${isKo ? k.name : k.nameEn}`,
-          hint: isKo ? k.description : k.guide,
-        };
-      }),
-    }).run();
-
-    if (selectedKitIds.length > 0) {
-      const names = selectedKitIds.map((id) => {
-        const kit = kits.find((k) => k.id === id);
-        const emoji = KIT_EMOJI[id] || "📦";
-        return `${emoji} ${isKo ? kit?.name : kit?.nameEn}`;
-      });
-      console.log(`     → ${names.join(", ")}`);
+  if (wantsAutoStart) {
+    try {
+      // 기존 서버 프로세스 종료 후 재시작 (새 .env 반영)
+      await ensureServerRunning(isKo);
+      const { installDaemon } = await import("./start");
+      await installDaemon();
+      console.log(isKo
+        ? "\n  ✅ 서버가 백그라운드에서 실행 중입니다!"
+        : "\n  ✅ Server is running in the background!");
+    } catch (err: any) {
+      console.error(isKo
+        ? `\n  ⚠️  LaunchAgent 설정 실패: ${err.message}`
+        : `\n  ⚠️  LaunchAgent setup failed: ${err.message}`);
+      console.log(isKo
+        ? "     수동으로 실행해주세요: bun run lifekit start"
+        : "     Please start manually: bun run lifekit start");
     }
-    await installKits(selectedKitIds, language);
   } else {
-    console.log(`  ${t.kitNone}`);
+    // 수동 모드에서도 기존 서버 있으면 재시작 (새 .env 반영)
+    await ensureServerRunning(isKo);
+    console.log(isKo
+      ? "     ⏭️  수동으로 실행해주세요: bun run lifekit start"
+      : "     ⏭️  Please start manually: bun run lifekit start");
+  }
+
+  // 서버 시작 대기 (LaunchAgent load 후 잠시 기다림)
+  if (wantsAutoStart) {
+    console.log(isKo ? "     ⏳ 서버 시작 대기 중..." : "     ⏳ Waiting for server...");
+    for (let i = 0; i < 10; i++) {
+      await new Promise((r) => setTimeout(r, 1000));
+      try {
+        const res = await fetch("http://localhost:4000/api/health", { signal: AbortSignal.timeout(1000) });
+        if (res.ok) {
+          console.log(isKo ? "     ✅ 서버 준비 완료!" : "     ✅ Server ready!");
+          break;
+        }
+      } catch {}
+    }
   }
   console.log("");
 
-  // 7. 구글 캘린더 연동
+  // ── 6. 구글 캘린더 연동 (skip 가능, 서버 켜진 후) ──
   console.log(`  ${t.googleCalStep}`);
   const googleChoice: string = await new Select({
     name: "google",
@@ -503,7 +576,6 @@ export async function initCommand() {
   }).run();
 
   if (googleChoice === "지금 연동하기" || googleChoice === "Connect now") {
-    // connect.ts의 google 연동 로직 실행
     const proc = Bun.spawn(["bun", "run", "lifekit", "connect", "google"], {
       cwd: PROJECT_ROOT,
       stdout: "inherit",
@@ -518,7 +590,7 @@ export async function initCommand() {
   }
   console.log("");
 
-  // 8. Tailscale 원격 접속
+  // ── 7. Tailscale 연동 (skip 가능, 서버 켜진 후) ──
   console.log(`  ${t.tailscaleStep}`);
   const tailscaleChoice: string = await new Select({
     name: "tailscale",
@@ -531,7 +603,6 @@ export async function initCommand() {
   }).run();
 
   if (tailscaleChoice === "Tailscale 연동하기" || tailscaleChoice === "Connect Tailscale") {
-    // Tailscale IP 자동 확인
     console.log(isKo
       ? "\n     🔍 Tailscale IP 확인 중..."
       : "\n     🔍 Checking Tailscale IP...");
@@ -550,11 +621,8 @@ export async function initCommand() {
     } catch {}
 
     if (tailscaleIp) {
-      console.log(isKo
-        ? `     ✅ Tailscale IP: ${tailscaleIp}`
-        : `     ✅ Tailscale IP: ${tailscaleIp}`);
+      console.log(`     ✅ Tailscale IP: ${tailscaleIp}`);
 
-      // config에 저장 (connect.ts 로직 재사용 패턴)
       const configPath = resolve(homedir(), ".lifekit", "config.json");
       try {
         let cfg: Record<string, any> = {};
@@ -611,121 +679,44 @@ export async function initCommand() {
   }
   console.log("");
 
-  // 9. 회고 시간 설정
-  console.log(`  ${t.reviewTime}`);
-  const briefingTime: string = await new Input({
-    name: "briefingTime",
-    message: t.briefingPrompt,
-    initial: "08:00",
-  }).run();
-  const reviewTime: string = await new Input({
-    name: "reviewTime",
-    message: t.reviewPrompt,
-    initial: "22:00",
-  }).run();
+  // ── 8. Kit 선택 + 설치 (서버 API 호출, skip 가능) ──
+  const kits = loadKits();
+  let selectedKitIds: string[] = [];
+  if (kits.length > 0) {
+    console.log(`  ${t.kitSelect}`);
+    selectedKitIds = await new MultiSelect({
+      name: "kits",
+      message: isKo
+        ? "사용할 Kit을 선택해주세요 (나중에 프로젝트 탭에서 언제든 추가할 수 있어요)\n  스페이스: 선택/해제 | 엔터: 확인 (선택 없이 엔터 시 skip)"
+        : "Select Kits (you can add more later in the project tab)\n  Space: toggle | Enter: confirm (enter without selection to skip)",
+      choices: kits.map((k) => {
+        const emoji = KIT_EMOJI[k.id] || "📦";
+        return {
+          name: k.id,
+          message: `${emoji} ${isKo ? k.name : k.nameEn}`,
+          hint: isKo ? k.description : k.guide,
+        };
+      }),
+    }).run();
 
-  // 주간 회고 요일 선택
-  const dayChoices = isKo
-    ? [
-        { name: "0", message: "일요일 (권장) ★" },
-        { name: "1", message: "월요일" },
-        { name: "2", message: "화요일" },
-        { name: "3", message: "수요일" },
-        { name: "4", message: "목요일" },
-        { name: "5", message: "금요일" },
-        { name: "6", message: "토요일" },
-      ]
-    : [
-        { name: "0", message: "Sunday (recommended) ★" },
-        { name: "1", message: "Monday" },
-        { name: "2", message: "Tuesday" },
-        { name: "3", message: "Wednesday" },
-        { name: "4", message: "Thursday" },
-        { name: "5", message: "Friday" },
-        { name: "6", message: "Saturday" },
-      ];
-
-  const weeklyReviewDayStr: string = await new Select({
-    name: "weeklyReviewDay",
-    message: isKo ? "주간 회고 요일 (일요일 권장)" : "Weekly review day (Sunday recommended)",
-    choices: dayChoices,
-  }).run();
-  const weeklyReviewDay = parseInt(weeklyReviewDayStr, 10);
-
-  const weeklyReviewTime: string = await new Input({
-    name: "weeklyReviewTime",
-    message: t.weeklyReviewPrompt,
-    initial: "21:00",
-  }).run();
-  console.log("");
-
-  // ── 저장 ──
-
-  // config.json 저장 (~/.lifekit/config.json)
-  if (!existsSync(LIFEKIT_DIR)) {
-    mkdirSync(LIFEKIT_DIR, { recursive: true });
-  }
-
-  const config: Record<string, any> = {
-    name,
-    language,
-    timezone,
-    dataDir,
-    adapter,
-    kits: selectedKitIds,
-    createdAt: new Date().toISOString(),
-  };
-
-  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
-  console.log(`  💾 설정 저장: ${CONFIG_PATH}`);
-
-  // settings.json 저장 (packages/server/data/settings.json)
-  saveSettingsJson({
-    name,
-    timezone,
-    language,
-    briefingTime,
-    reviewTime,
-    weeklyReviewTime,
-    weeklyReviewDay,
-  });
-
-  // .env 파일 저장 (packages/server/.env)
-  if (envLines.length > 0) {
-    saveEnvFile(envLines);
-  }
-
-  console.log("");
-
-  // ── 자동 실행 설정 ──
-  console.log(`  8️⃣  ${isKo ? "서버 자동 실행 설정" : "Auto-start Setup"}`);
-  const autoStartChoice: string = await new Select({
-    name: "autoStart",
-    message: isKo
-      ? "서버를 자동으로 실행할까요?\n  컴퓨터 시작 시 LifeKit 서버가 자동으로 켜져요."
-      : "Auto-start server?\n  LifeKit server will start automatically when your computer boots.",
-    choices: isKo
-      ? ["자동 실행 (권장)", "수동 실행 (bun run lifekit start)"]
-      : ["Auto-start (recommended)", "Manual (bun run lifekit start)"],
-  }).run();
-
-  const wantsAutoStart = autoStartChoice.includes("자동") || autoStartChoice.includes("Auto");
-
-  if (wantsAutoStart) {
-    try {
-      const { installDaemon } = await import("./start");
-      await installDaemon();
-      console.log(isKo
-        ? "\n  ✅ 서버가 백그라운드에서 실행 중입니다!"
-        : "\n  ✅ Server is running in the background!");
-    } catch (err: any) {
-      console.error(isKo
-        ? `\n  ⚠️  LaunchAgent 설정 실패: ${err.message}`
-        : `\n  ⚠️  LaunchAgent setup failed: ${err.message}`);
-      console.log(isKo
-        ? "     수동으로 실행해주세요: bun run lifekit start"
-        : "     Please start manually: bun run lifekit start");
+    if (selectedKitIds.length > 0) {
+      const names = selectedKitIds.map((id) => {
+        const kit = kits.find((k) => k.id === id);
+        const emoji = KIT_EMOJI[id] || "📦";
+        return `${emoji} ${isKo ? kit?.name : kit?.nameEn}`;
+      });
+      console.log(`     → ${names.join(", ")}`);
     }
+    await installKits(selectedKitIds, language);
+
+    // config.json에 kits 업데이트
+    try {
+      const cfg = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+      cfg.kits = selectedKitIds;
+      writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+    } catch {}
+  } else {
+    console.log(`  ${t.kitNone}`);
   }
   console.log("");
 

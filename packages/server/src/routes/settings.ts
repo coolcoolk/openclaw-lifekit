@@ -16,6 +16,7 @@ export interface Settings {
     briefingTime: string;
     reviewTime: string;
     weeklyReviewTime: string;
+    weeklyReviewDay: number;
   };
   ai: {
     provider: "anthropic" | "ollama";
@@ -49,6 +50,7 @@ const DEFAULT_SETTINGS: Settings = {
     briefingTime: "08:00",
     reviewTime: "22:00",
     weeklyReviewTime: "21:00",
+    weeklyReviewDay: 0,
   },
   ai: {
     provider: "anthropic",
@@ -134,12 +136,12 @@ async function checkAiStatus(): Promise<AiStatus> {
     return { configured: false, connected: false, adapter: null, gatewayUrl: null };
   }
 
-  // For openclaw adapter, check gateway connectivity
+  // For openclaw adapter, check gateway connectivity via /v1/models
   if (adapter === "openclaw" && gatewayUrl) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(`${gatewayUrl}/api/status`, {
+      const res = await fetch(`${gatewayUrl}/v1/models`, {
         signal: controller.signal,
         headers: gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {},
       });

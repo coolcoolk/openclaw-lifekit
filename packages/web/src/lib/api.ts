@@ -170,6 +170,8 @@ export interface Settings {
   routine: {
     briefingTime: string;
     reviewTime: string;
+    weeklyReviewTime: string;
+    weeklyReviewDay: number;
   };
   ai: {
     provider: "anthropic" | "ollama";

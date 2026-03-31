@@ -281,6 +281,7 @@ const translations: Record<string, Record<Language, string>> = {
   "settings.morningBriefing": { ko: "모닝 브리핑", en: "Morning Briefing" },
   "settings.dailyReview": { ko: "일일 회고", en: "Daily Review" },
   "settings.weeklyReview": { ko: "주간 회고", en: "Weekly Review" },
+  "settings.weeklyReviewDay": { ko: "주간 회고 요일", en: "Weekly Review Day" },
   "settings.aiChecking": { ko: "확인 중...", en: "Checking..." },
   "settings.aiSetupRequired": { ko: "설정 필요", en: "Setup Required" },
   "settings.aiNotConfigured": { ko: "AI 어댑터가 설정되지 않았습니다", en: "AI adapter is not configured" },
