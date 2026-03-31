@@ -44,9 +44,9 @@ bun install
 
 echo ""
 
-# 4. lifekit init 실행
+# 4. lifekit init 실행 (stdin을 /dev/tty로 연결해서 인터랙티브 프롬프트 작동)
 echo "🚀 Starting setup..."
-bun run lifekit init
+exec bun run lifekit init < /dev/tty
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━"
