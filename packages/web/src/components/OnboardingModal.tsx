@@ -506,7 +506,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
 
       {/* Input area */}
       {showInput && (
-        <div className="flex-none px-4 py-4 border-t border-border bg-background space-y-2 animate-in fade-in duration-200">
+        <div
+          className="flex-none px-4 pt-4 border-t border-border bg-background space-y-2 animate-in fade-in duration-200"
+          style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}
+        >
           {/* Birth date input */}
           {phase === "ask-birth" && (
             <div className="flex items-center gap-2">
