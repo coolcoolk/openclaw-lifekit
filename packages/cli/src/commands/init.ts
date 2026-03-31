@@ -111,12 +111,19 @@ async function installKits(kitIds: string[], language: string): Promise<void> {
     return;
   }
 
-  // 서버 연결 확인
+  // 서버 연결 확인 (최대 30초 대기, 1초 간격 retry)
   let serverOk = false;
-  try {
-    const res = await fetch("http://localhost:4000/api/health", { signal: AbortSignal.timeout(2000) });
-    serverOk = res.ok;
-  } catch {}
+  console.log(isKo ? "     🔍 서버 연결 확인 중..." : "     🔍 Checking server connection...");
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      const res = await fetch("http://localhost:4000/api/kits", { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        serverOk = true;
+        break;
+      }
+    } catch {}
+    if (attempt < 29) await new Promise((r) => setTimeout(r, 1000));
+  }
 
   if (!serverOk) {
     console.log(isKo
@@ -553,7 +560,7 @@ export async function initCommand() {
     for (let i = 0; i < 10; i++) {
       await new Promise((r) => setTimeout(r, 1000));
       try {
-        const res = await fetch("http://localhost:4000/api/health", { signal: AbortSignal.timeout(1000) });
+        const res = await fetch("http://localhost:4000/api/kits", { signal: AbortSignal.timeout(1000) });
         if (res.ok) {
           console.log(isKo ? "     ✅ 서버 준비 완료!" : "     ✅ Server ready!");
           break;

@@ -22,7 +22,7 @@ function Layout() {
   useEffect(() => {
     api.getSettings()
       .then((settings) => {
-        if (!settings.profile?.name) {
+        if (!(settings as any).onboardingCompleted) {
           setShowOnboarding(true);
         }
       })

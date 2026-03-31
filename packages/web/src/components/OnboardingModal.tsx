@@ -8,11 +8,11 @@ interface OnboardingModalProps {
   onComplete: () => void;
 }
 
-const MBTI_TYPES = [
-  "ISTJ", "ISFJ", "INFJ", "INTJ",
-  "ISTP", "ISFP", "INFP", "INTP",
-  "ESTP", "ESFP", "ENFP", "ENTP",
-  "ESTJ", "ESFJ", "ENFJ", "ENTJ",
+const MBTI_PAIRS: { label: string; options: [string, string] }[] = [
+  { label: "에너지 방향", options: ["E", "I"] },
+  { label: "인식 기능", options: ["S", "N"] },
+  { label: "판단 기능", options: ["T", "F"] },
+  { label: "생활 양식", options: ["J", "P"] },
 ];
 
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
@@ -20,9 +20,13 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const [transitioning, setTransitioning] = useState(false);
 
   // Profile
-  const [name, setName] = useState("");
   const [birthDate, setBirthDate] = useState("");
-  const [mbti, setMbti] = useState("");
+  const [mbtiSelections, setMbtiSelections] = useState<Record<number, string>>({});
+
+  const getMbti = () => {
+    const parts = MBTI_PAIRS.map((_, i) => mbtiSelections[i] || "");
+    return parts.every(Boolean) ? parts.join("") : "";
+  };
 
   // Kits
   const [kits, setKits] = useState<Kit[]>([]);
@@ -46,12 +50,10 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   }, []);
 
   const handleProfileSave = async () => {
-    if (!name.trim()) return;
     setSaving(true);
     try {
-      const update: Record<string, any> = {
-        profile: { name: name.trim() } as any,
-      };
+      const mbti = getMbti();
+      const update: Record<string, any> = { profile: {} as any };
       if (birthDate) (update.profile as any).birthDate = birthDate;
       if (mbti) (update.profile as any).mbti = mbti;
       await api.updateSettings(update as any);
@@ -83,7 +85,9 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   };
 
   const handleComplete = async () => {
-    // Mark onboarding as complete by ensuring profile.name is set
+    try {
+      await api.updateSettings({ onboardingCompleted: true } as any);
+    } catch {}
     onComplete();
   };
 
@@ -128,19 +132,6 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
               </div>
 
               <div className="space-y-4">
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">이름 *</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="이름을 입력하세요"
-                    className="w-full px-3.5 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
-                    autoFocus
-                  />
-                </div>
-
                 {/* Birth Date */}
                 <div>
                   <label className="block text-sm font-medium mb-1.5">
@@ -159,28 +150,35 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                   <label className="block text-sm font-medium mb-1.5">
                     MBTI <span className="text-muted-foreground font-normal">(선택)</span>
                   </label>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {MBTI_TYPES.map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setMbti(mbti === type ? "" : type)}
-                        className={`px-2 py-1.5 text-xs font-medium rounded-md border transition-colors ${
-                          mbti === type
-                            ? "bg-foreground text-background border-foreground"
-                            : "bg-background text-foreground border-border hover:bg-muted"
-                        }`}
-                      >
-                        {type}
-                      </button>
+                  <div className="space-y-2">
+                    {MBTI_PAIRS.map((pair, i) => (
+                      <div key={i} className="flex gap-2">
+                        {pair.options.map((opt) => (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => setMbtiSelections((prev) => ({ ...prev, [i]: opt }))}
+                            className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
+                              mbtiSelections[i] === opt
+                                ? "bg-foreground text-background border-foreground"
+                                : "bg-background text-foreground border-border hover:bg-muted"
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
                     ))}
                   </div>
+                  {getMbti() && (
+                    <p className="text-xs text-muted-foreground mt-2 text-center">선택됨: <strong>{getMbti()}</strong></p>
+                  )}
                 </div>
               </div>
 
               <button
                 onClick={handleProfileSave}
-                disabled={!name.trim() || saving}
+                disabled={saving}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-40 transition-opacity"
               >
                 {saving ? "저장 중..." : "다음"}
