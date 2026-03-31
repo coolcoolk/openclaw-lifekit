@@ -6,13 +6,8 @@ OpenClaw, Perplexity Computer, 또는 Claude와 연결해서 쓰는 로컬 라�
 
 ## Quick Install
 
-**macOS + bun 필요**
+**macOS + [bun](https://bun.sh) 필요**
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/coolcoolk/openclaw-lifekit/main/install.sh | bash
-```
-
-또는 수동:
 ```bash
 git clone https://github.com/coolcoolk/openclaw-lifekit ~/lifekit
 cd ~/lifekit
