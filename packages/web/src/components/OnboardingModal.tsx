@@ -1,256 +1,429 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { api, type Kit } from "@/lib/api";
-import { ChevronRight, Check, Sparkles, Package } from "lucide-react";
 
-type Step = "profile" | "kit" | "done";
+/* ─── Types ─── */
 
 interface OnboardingModalProps {
   onComplete: () => void;
 }
 
-const MBTI_PAIRS: { label: string; options: [string, string] }[] = [
-  { label: "에너지 방향", options: ["E", "I"] },
-  { label: "인식 기능", options: ["S", "N"] },
-  { label: "판단 기능", options: ["T", "F"] },
-  { label: "생활 양식", options: ["J", "P"] },
+type ChatRole = "ag" | "user";
+
+interface ChatMessage {
+  id: string;
+  role: ChatRole;
+  text: string;
+  visible: boolean;
+}
+
+type Phase =
+  | "intro"
+  | "ask-birth"
+  | "ask-mbti"
+  | "mbti-ei"
+  | "mbti-sn"
+  | "mbti-tf"
+  | "mbti-jp"
+  | "mbti-result"
+  | "kit"
+  | "done";
+
+/* ─── Constants ─── */
+
+const MBTI_STEPS: { phase: Phase; label: string; options: [string, string] }[] = [
+  { phase: "mbti-ei", label: "에너지 방향", options: ["E", "I"] },
+  { phase: "mbti-sn", label: "인식 기능", options: ["S", "N"] },
+  { phase: "mbti-tf", label: "판단 기능", options: ["T", "F"] },
+  { phase: "mbti-jp", label: "생활 양식", options: ["J", "P"] },
 ];
 
+let msgIdCounter = 0;
+const nextId = () => `msg-${++msgIdCounter}`;
+
+/* ─── Component ─── */
+
 export function OnboardingModal({ onComplete }: OnboardingModalProps) {
-  const [step, setStep] = useState<Step>("profile");
-  const [transitioning, setTransitioning] = useState(false);
-
-  // Profile
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [phase, setPhase] = useState<Phase>("intro");
   const [birthDate, setBirthDate] = useState("");
-  const [mbtiSelections, setMbtiSelections] = useState<Record<number, string>>({});
-
-  const getMbti = () => {
-    const parts = MBTI_PAIRS.map((_, i) => mbtiSelections[i] || "");
-    return parts.every(Boolean) ? parts.join("") : "";
-  };
-
-  // Kits
+  const [mbtiParts, setMbtiParts] = useState<string[]>([]);
   const [kits, setKits] = useState<Kit[]>([]);
   const [kitIndex, setKitIndex] = useState(0);
-
-  // Loading
   const [saving, setSaving] = useState(false);
+  const [showInput, setShowInput] = useState(false);
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  /* ─── Helpers ─── */
+
+  const addMessages = useCallback(
+    (msgs: { role: ChatRole; text: string }[], thenPhase?: Phase) => {
+      setShowInput(false);
+      msgs.forEach((m, i) => {
+        setTimeout(() => {
+          const id = nextId();
+          setMessages((prev) => [...prev, { ...m, id, visible: false }]);
+          // Fade in after a tick
+          setTimeout(() => {
+            setMessages((prev) =>
+              prev.map((p) => (p.id === id ? { ...p, visible: true } : p))
+            );
+          }, 30);
+          // After last message, set phase
+          if (i === msgs.length - 1 && thenPhase) {
+            setTimeout(() => {
+              setPhase(thenPhase);
+              setShowInput(true);
+            }, 200);
+          }
+        }, i * 400);
+      });
+    },
+    []
+  );
+
+  const addUserMsg = useCallback((text: string) => {
+    const id = nextId();
+    setMessages((prev) => [...prev, { id, role: "user", text, visible: true }]);
+  }, []);
+
+  /* ─── Auto-scroll ─── */
 
   useEffect(() => {
-    api.getKits().then((all) => {
-      setKits(all.filter((k) => k.installed));
-    }).catch(() => {});
+    const el = scrollRef.current;
+    if (el) {
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight;
+      });
+    }
+  }, [messages, phase, showInput]);
+
+  /* ─── Load kits ─── */
+
+  useEffect(() => {
+    api
+      .getKits()
+      .then((all) => setKits(all.filter((k) => k.installed)))
+      .catch(() => {});
   }, []);
 
-  const transition = useCallback((next: Step) => {
-    setTransitioning(true);
+  /* ─── Intro flow ─── */
+
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    addMessages(
+      [
+        { role: "ag", text: "안녕하세요! 저는 아그예요 🦊\nLifeKit에 오신 것을 환영해요!" },
+        { role: "ag", text: "몇 가지 간단한 질문으로 시작해볼게요." },
+        { role: "ag", text: "생년월일이 어떻게 되세요? (선택 사항이에요)" },
+      ],
+      "ask-birth"
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ─── Handlers ─── */
+
+  const goToMbtiOrNext = useCallback(() => {
+    addMessages(
+      [{ role: "ag", text: "MBTI를 알고 계신가요?" }],
+      "ask-mbti"
+    );
+  }, [addMessages]);
+
+  const handleBirthSubmit = useCallback(() => {
+    if (birthDate) {
+      addUserMsg(birthDate);
+    } else {
+      addUserMsg("건너뛰기");
+    }
+    setShowInput(false);
+    setTimeout(() => goToMbtiOrNext(), 300);
+  }, [birthDate, addUserMsg, goToMbtiOrNext]);
+
+  const handleBirthSkip = useCallback(() => {
+    addUserMsg("건너뛰기");
+    setBirthDate("");
+    setShowInput(false);
+    setTimeout(() => goToMbtiOrNext(), 300);
+  }, [addUserMsg, goToMbtiOrNext]);
+
+  const startMbtiFlow = useCallback(() => {
+    setMbtiParts([]);
+    addMessages(
+      [{ role: "ag", text: `${MBTI_STEPS[0].label}: 어느 쪽인가요?` }],
+      "mbti-ei"
+    );
+  }, [addMessages]);
+
+  const handleMbtiSkip = useCallback(() => {
+    addUserMsg("잘 모르겠어요");
+    setShowInput(false);
     setTimeout(() => {
-      setStep(next);
-      setTransitioning(false);
+      addMessages(
+        [{ role: "ag", text: "괜찮아요, 나중에 알게 되면 알려주세요 😊" }],
+        undefined
+      );
+      // proceed to kits or done
+      setTimeout(() => {
+        if (kits.length > 0) {
+          const kit = kits[0];
+          addMessages(
+            [
+              { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
+              ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
+            ],
+            "kit"
+          );
+          setKitIndex(0);
+        } else {
+          addMessages(
+            [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
+            "done"
+          );
+        }
+      }, 600);
     }, 300);
-  }, []);
+  }, [addUserMsg, addMessages, kits]);
 
-  const handleProfileSave = async () => {
+  const handleMbtiSelect = useCallback(
+    (option: string) => {
+      addUserMsg(option);
+      setShowInput(false);
+      const newParts = [...mbtiParts, option];
+      setMbtiParts(newParts);
+
+      const stepIdx = newParts.length; // next index
+      if (stepIdx < 4) {
+        setTimeout(() => {
+          addMessages(
+            [{ role: "ag", text: `${MBTI_STEPS[stepIdx].label}: 어느 쪽인가요?` }],
+            MBTI_STEPS[stepIdx].phase
+          );
+        }, 300);
+      } else {
+        // All 4 selected
+        const mbti = newParts.join("");
+        setTimeout(() => {
+          addMessages(
+            [{ role: "ag", text: `좋아요! ${mbti}군요 😊` }],
+            undefined
+          );
+          setTimeout(() => {
+            if (kits.length > 0) {
+              const kit = kits[0];
+              addMessages(
+                [
+                  { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
+                  ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
+                ],
+                "kit"
+              );
+              setKitIndex(0);
+            } else {
+              addMessages(
+                [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
+                "done"
+              );
+            }
+          }, 600);
+        }, 300);
+      }
+    },
+    [mbtiParts, addUserMsg, addMessages, kits]
+  );
+
+  const handleKitNext = useCallback(() => {
+    addUserMsg("다음 →");
+    setShowInput(false);
+    const nextIdx = kitIndex + 1;
+    if (nextIdx < kits.length) {
+      setKitIndex(nextIdx);
+      const kit = kits[nextIdx];
+      setTimeout(() => {
+        addMessages(
+          [
+            { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
+            ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
+          ],
+          "kit"
+        );
+      }, 300);
+    } else {
+      setTimeout(() => {
+        addMessages(
+          [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
+          "done"
+        );
+      }, 300);
+    }
+  }, [kitIndex, kits, addUserMsg, addMessages]);
+
+  const handleComplete = useCallback(async () => {
     setSaving(true);
     try {
-      const mbti = getMbti();
-      const update: Record<string, any> = { profile: {} as any };
-      if (birthDate) (update.profile as any).birthDate = birthDate;
-      if (mbti) (update.profile as any).mbti = mbti;
+      const update: Record<string, any> = { profile: {} };
+      if (birthDate) update.profile.birthDate = birthDate;
+      const mbti = mbtiParts.join("");
+      if (mbti.length === 4) update.profile.mbti = mbti;
       await api.updateSettings(update as any);
-
-      if (kits.length > 0) {
-        transition("kit");
-      } else {
-        transition("done");
-      }
-    } catch {
-      // ignore, still proceed
-      if (kits.length > 0) transition("kit");
-      else transition("done");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleKitNext = () => {
-    if (kitIndex < kits.length - 1) {
-      setTransitioning(true);
-      setTimeout(() => {
-        setKitIndex((i) => i + 1);
-        setTransitioning(false);
-      }, 250);
-    } else {
-      transition("done");
-    }
-  };
-
-  const handleComplete = async () => {
+    } catch {}
     try {
       await api.updateSettings({ onboardingCompleted: true } as any);
     } catch {}
+    setSaving(false);
     onComplete();
-  };
+  }, [birthDate, mbtiParts, onComplete]);
 
-  const totalSteps = 2 + (kits.length > 0 ? 1 : 0);
-  const currentStep = step === "profile" ? 1 : step === "kit" ? 2 : totalSteps;
+  /* ─── Progress ─── */
 
-  const currentKit = kits[kitIndex];
+  const progressPhases: Phase[] = ["intro", "ask-birth", "ask-mbti", "mbti-ei", "mbti-sn", "mbti-tf", "mbti-jp", "mbti-result", "kit", "done"];
+  const progressIdx = progressPhases.indexOf(phase);
+  const progressPct = Math.min(100, Math.round(((progressIdx + 1) / progressPhases.length) * 100));
+
+  /* ─── Current MBTI step index ─── */
+
+  const currentMbtiStepIdx = MBTI_STEPS.findIndex((s) => s.phase === phase);
+
+  /* ─── Render ─── */
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div
-        className={`
-          relative w-full max-w-md mx-4 bg-background rounded-2xl shadow-2xl overflow-hidden
-          transition-all duration-300 ease-out
-          ${transitioning ? "opacity-0 scale-95 translate-y-2" : "opacity-100 scale-100 translate-y-0"}
-        `}
-      >
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 px-6 pt-5 pb-2">
-          {Array.from({ length: totalSteps }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1 flex-1 rounded-full transition-colors duration-300 ${
-                i < currentStep ? "bg-foreground" : "bg-border"
-              }`}
-            />
-          ))}
-        </div>
-
-        <div className="px-6 pb-6">
-          {/* ── Step 1: Profile ── */}
-          {step === "profile" && (
-            <div className="space-y-5">
-              <div className="pt-4 text-center space-y-2">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-2">
-                  <Sparkles className="w-7 h-7 text-foreground" />
-                </div>
-                <h2 className="text-xl font-bold">LifeKit에 오신 것을 환영해요 🎉</h2>
-                <p className="text-sm text-muted-foreground">
-                  먼저 간단한 프로필을 설정해볼까요?
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                {/* Birth Date */}
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    생년월일 <span className="text-muted-foreground font-normal">(선택)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={birthDate}
-                    onChange={(e) => setBirthDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
-                  />
-                </div>
-
-                {/* MBTI */}
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">
-                    MBTI <span className="text-muted-foreground font-normal">(선택)</span>
-                  </label>
-                  <div className="space-y-2">
-                    {MBTI_PAIRS.map((pair, i) => (
-                      <div key={i} className="flex gap-2">
-                        {pair.options.map((opt) => (
-                          <button
-                            key={opt}
-                            type="button"
-                            onClick={() => setMbtiSelections((prev) => ({ ...prev, [i]: opt }))}
-                            className={`flex-1 py-2 text-sm font-medium rounded-lg border transition-colors ${
-                              mbtiSelections[i] === opt
-                                ? "bg-foreground text-background border-foreground"
-                                : "bg-background text-foreground border-border hover:bg-muted"
-                            }`}
-                          >
-                            {opt}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                  {getMbti() && (
-                    <p className="text-xs text-muted-foreground mt-2 text-center">선택됨: <strong>{getMbti()}</strong></p>
-                  )}
-                </div>
-              </div>
-
-              <button
-                onClick={handleProfileSave}
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-40 transition-opacity"
-              >
-                {saving ? "저장 중..." : "다음"}
-                {!saving && <ChevronRight className="w-4 h-4" />}
-              </button>
-            </div>
-          )}
-
-          {/* ── Step 2: Kit onboarding ── */}
-          {step === "kit" && currentKit && (
-            <div className="space-y-5">
-              <div className="pt-4 text-center space-y-2">
-                <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-2">
-                  <Package className="w-7 h-7 text-foreground" />
-                </div>
-                <h2 className="text-xl font-bold">{currentKit.name} Kit이 활성화됐어요! 📦</h2>
-                {currentKit.guide && (
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
-                    {currentKit.guide}
-                  </p>
-                )}
-              </div>
-
-              <div className="bg-muted rounded-xl p-4 space-y-2">
-                <p className="text-sm leading-relaxed">
-                  이제 <strong>{currentKit.name}</strong>을 어떻게 사용하는지 알려드릴게요.
-                </p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  기록을 시작하려면 아그에게 직접 말하거나,<br />
-                  프로젝트 탭의 <strong>{currentKit.name}</strong>을 클릭하세요.
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{kitIndex + 1} / {kits.length} Kits</span>
-              </div>
-
-              <button
-                onClick={handleKitNext}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity"
-              >
-                {kitIndex < kits.length - 1 ? "다음" : "완료"}
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
-          {/* ── Step 3: Done ── */}
-          {step === "done" && (
-            <div className="space-y-5">
-              <div className="pt-6 text-center space-y-3">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-foreground text-background mb-2">
-                  <Check className="w-8 h-8" strokeWidth={3} />
-                </div>
-                <h2 className="text-xl font-bold">준비 완료! 🚀</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  LifeKit이 준비됐어요.<br />
-                  궁금한 게 있으면 언제든 아그에게 말씀해주세요.
-                </p>
-              </div>
-
-              <button
-                onClick={handleComplete}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity"
-              >
-                시작하기
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+    <div className="fixed inset-0 z-[9999] flex flex-col bg-background">
+      {/* Header */}
+      <div className="flex-none px-4 pt-4 pb-2 space-y-2">
+        <p className="text-sm font-medium text-muted-foreground">LifeKit 설정 중...</p>
+        <div className="h-1 w-full bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-foreground rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progressPct}%` }}
+          />
         </div>
       </div>
+
+      {/* Chat area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex transition-all duration-300 ease-out ${
+              msg.visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+            } ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            {msg.role === "ag" && (
+              <div className="flex-none w-8 h-8 rounded-full bg-muted flex items-center justify-center text-base mr-2 mt-0.5">
+                🦊
+              </div>
+            )}
+            <div
+              className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                msg.role === "ag"
+                  ? "bg-muted text-foreground rounded-tl-md"
+                  : "bg-foreground text-background rounded-tr-md"
+              }`}
+            >
+              {msg.text}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Input area */}
+      {showInput && (
+        <div className="flex-none px-4 py-4 border-t border-border bg-background space-y-2 animate-in fade-in duration-200">
+          {/* Birth date input */}
+          {phase === "ask-birth" && (
+            <div className="flex items-center gap-2">
+              <input
+                ref={inputRef}
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
+                autoFocus
+              />
+              <button
+                onClick={handleBirthSkip}
+                className="px-4 py-2.5 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                건너뛰기
+              </button>
+              <button
+                onClick={handleBirthSubmit}
+                disabled={!birthDate}
+                className="px-4 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-30 transition-opacity"
+              >
+                확인
+              </button>
+            </div>
+          )}
+
+          {/* MBTI ask */}
+          {phase === "ask-mbti" && (
+            <div className="flex items-center gap-2 justify-center">
+              <button
+                onClick={startMbtiFlow}
+                className="px-5 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity"
+              >
+                네, 알고 있어요
+              </button>
+              <button
+                onClick={handleMbtiSkip}
+                className="px-5 py-2.5 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+              >
+                잘 모르겠어요
+              </button>
+            </div>
+          )}
+
+          {/* MBTI selection steps */}
+          {currentMbtiStepIdx >= 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-center text-muted-foreground">
+                {MBTI_STEPS[currentMbtiStepIdx].label}
+              </p>
+              <div className="flex items-center gap-3 justify-center">
+                {MBTI_STEPS[currentMbtiStepIdx].options.map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => handleMbtiSelect(opt)}
+                    className="w-20 py-3 text-lg font-bold rounded-xl border border-border hover:bg-foreground hover:text-background transition-colors"
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Kit next */}
+          {phase === "kit" && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleKitNext}
+                className="px-6 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity"
+              >
+                다음 →
+              </button>
+            </div>
+          )}
+
+          {/* Done */}
+          {phase === "done" && (
+            <div className="flex justify-center">
+              <button
+                onClick={handleComplete}
+                disabled={saving}
+                className="px-8 py-3 text-sm font-semibold rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-40 transition-opacity"
+              >
+                {saving ? "저장 중..." : "시작하기 →"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
