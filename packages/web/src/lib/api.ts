@@ -187,6 +187,7 @@ export interface Settings {
     review: boolean;
     taskReminder: boolean;
   };
+  kitPreferences: Record<string, Record<string, string>>;
   dashboard: {
     defaultPage: string;
     theme: "light" | "dark" | "system";

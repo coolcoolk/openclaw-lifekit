@@ -20,22 +20,96 @@ type Phase =
   | "intro"
   | "ask-birth"
   | "ask-mbti"
-  | "mbti-ei"
-  | "mbti-sn"
-  | "mbti-tf"
-  | "mbti-jp"
-  | "mbti-result"
-  | "kit"
+  | "mbti-input"
+  | "kit-intro"
+  | "kit-q"
   | "done";
 
-/* ─── Constants ─── */
+/* ─── Kit Question Definitions ─── */
 
-const MBTI_STEPS: { phase: Phase; label: string; options: [string, string] }[] = [
-  { phase: "mbti-ei", label: "에너지 방향", options: ["E", "I"] },
-  { phase: "mbti-sn", label: "인식 기능", options: ["S", "N"] },
-  { phase: "mbti-tf", label: "판단 기능", options: ["T", "F"] },
-  { phase: "mbti-jp", label: "생활 양식", options: ["J", "P"] },
-];
+interface KitQuestion {
+  message: string;
+  field: string;
+  type: "choice" | "text";
+  choices?: string[];
+  /** Value mapping: display label → stored value */
+  valueMap?: Record<string, string>;
+  /** Shortcut button for text inputs (e.g. "없어요") */
+  skipButton?: string;
+  skipValue?: string;
+}
+
+interface KitFlow {
+  emoji: string;
+  questions: KitQuestion[];
+}
+
+const KIT_FLOWS: Record<string, KitFlow> = {
+  diet: {
+    emoji: "🥗",
+    questions: [
+      {
+        message: "식사를 어떤 수준으로 기록하고 싶으세요?",
+        field: "trackingLevel",
+        type: "choice",
+        choices: ["간단히 (뭘 먹었는지만)", "상세히 (칼로리, 영양소 포함)"],
+        valueMap: {
+          "간단히 (뭘 먹었는지만)": "simple",
+          "상세히 (칼로리, 영양소 포함)": "detailed",
+        },
+      },
+      {
+        message: "혹시 식이 제한이 있으신가요? (채식, 글루텐프리 등)",
+        field: "restrictions",
+        type: "text",
+        skipButton: "없어요",
+        skipValue: "없음",
+      },
+    ],
+  },
+  exercise: {
+    emoji: "💪",
+    questions: [
+      {
+        message: "주로 어떤 운동을 하세요?",
+        field: "types",
+        type: "text",
+      },
+      {
+        message: "일주일에 몇 번 정도 운동하세요?",
+        field: "frequency",
+        type: "choice",
+        choices: ["1-2회", "3-4회", "5회 이상", "불규칙하게"],
+      },
+    ],
+  },
+  finance: {
+    emoji: "💰",
+    questions: [
+      {
+        message: "지출을 얼마나 상세하게 기록하고 싶으세요?",
+        field: "trackingLevel",
+        type: "choice",
+        choices: ["간단히 (큰 항목만)", "상세히 (모든 지출)"],
+        valueMap: {
+          "간단히 (큰 항목만)": "simple",
+          "상세히 (모든 지출)": "detailed",
+        },
+      },
+    ],
+  },
+  relations: {
+    emoji: "🤝",
+    questions: [
+      {
+        message: "주로 어떤 관계를 기록하고 싶으세요?",
+        field: "focus",
+        type: "choice",
+        choices: ["가족/친구", "직장/비즈니스", "모두"],
+      },
+    ],
+  },
+};
 
 let msgIdCounter = 0;
 const nextId = () => `msg-${++msgIdCounter}`;
@@ -46,11 +120,14 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [phase, setPhase] = useState<Phase>("intro");
   const [birthDate, setBirthDate] = useState("");
-  const [mbtiParts, setMbtiParts] = useState<string[]>([]);
+  const [mbti, setMbti] = useState("");
   const [kits, setKits] = useState<Kit[]>([]);
   const [kitIndex, setKitIndex] = useState(0);
+  const [kitQuestionIndex, setKitQuestionIndex] = useState(0);
+  const [kitPreferences, setKitPreferences] = useState<Record<string, Record<string, string>>>({});
   const [saving, setSaving] = useState(false);
   const [showInput, setShowInput] = useState(false);
+  const [textInput, setTextInput] = useState("");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,13 +141,11 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
         setTimeout(() => {
           const id = nextId();
           setMessages((prev) => [...prev, { ...m, id, visible: false }]);
-          // Fade in after a tick
           setTimeout(() => {
             setMessages((prev) =>
               prev.map((p) => (p.id === id ? { ...p, visible: true } : p))
             );
           }, 30);
-          // After last message, set phase
           if (i === msgs.length - 1 && thenPhase) {
             setTimeout(() => {
               setPhase(thenPhase);
@@ -125,13 +200,107 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ─── Kit flow helpers ─── */
+
+  /** Get the KitFlow for a given kit, if one exists */
+  const getKitFlow = useCallback((kit: Kit): KitFlow | null => {
+    // Match by nameEn (lowercase) or id
+    const key = kit.id ?? kit.nameEn?.toLowerCase();
+    return KIT_FLOWS[key] ?? null;
+  }, []);
+
+  /** Start the question flow for a given kit index */
+  const startKitQuestions = useCallback(
+    (idx: number) => {
+      if (idx >= kits.length) {
+        // All kits done
+        addMessages(
+          [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
+          "done"
+        );
+        return;
+      }
+
+      const kit = kits[idx];
+      const flow = getKitFlow(kit);
+      const emoji = flow?.emoji ?? "📦";
+
+      setKitIndex(idx);
+      setKitQuestionIndex(0);
+
+      if (flow && flow.questions.length > 0) {
+        // Kit with custom questions
+        addMessages(
+          [
+            { role: "ag", text: `${kit.name} Kit이 활성화됐어요 ${emoji}` },
+            { role: "ag", text: flow.questions[0].message },
+          ],
+          "kit-q"
+        );
+      } else {
+        // Unknown kit: show guide + next button
+        addMessages(
+          [
+            { role: "ag", text: `${kit.name} Kit이 활성화됐어요 ${emoji}` },
+            ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
+          ],
+          "kit-intro"
+        );
+      }
+    },
+    [kits, addMessages, getKitFlow]
+  );
+
+  /** Advance to next question within current kit, or move to next kit */
+  const advanceKitQuestion = useCallback(
+    (currentKitIdx: number, currentQIdx: number) => {
+      const kit = kits[currentKitIdx];
+      const flow = getKitFlow(kit);
+      if (!flow) return;
+
+      const nextQ = currentQIdx + 1;
+      if (nextQ < flow.questions.length) {
+        setKitQuestionIndex(nextQ);
+        addMessages(
+          [{ role: "ag", text: flow.questions[nextQ].message }],
+          "kit-q"
+        );
+      } else {
+        // This kit is done, move to next
+        setTimeout(() => startKitQuestions(currentKitIdx + 1), 300);
+      }
+    },
+    [kits, getKitFlow, addMessages, startKitQuestions]
+  );
+
+  /** Save an answer for a kit question */
+  const saveKitAnswer = useCallback(
+    (kitKey: string, field: string, value: string) => {
+      setKitPreferences((prev) => ({
+        ...prev,
+        [kitKey]: { ...prev[kitKey], [field]: value },
+      }));
+    },
+    []
+  );
+
+  /* ─── Move from MBTI/birth to kits ─── */
+
+  const proceedToKits = useCallback(() => {
+    if (kits.length > 0) {
+      startKitQuestions(0);
+    } else {
+      addMessages(
+        [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
+        "done"
+      );
+    }
+  }, [kits, addMessages, startKitQuestions]);
+
   /* ─── Handlers ─── */
 
-  const goToMbtiOrNext = useCallback(() => {
-    addMessages(
-      [{ role: "ag", text: "MBTI를 알고 계신가요?" }],
-      "ask-mbti"
-    );
+  const goToMbti = useCallback(() => {
+    addMessages([{ role: "ag", text: "MBTI를 알고 계신가요?" }], "ask-mbti");
   }, [addMessages]);
 
   const handleBirthSubmit = useCallback(() => {
@@ -141,24 +310,26 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
       addUserMsg("건너뛰기");
     }
     setShowInput(false);
-    setTimeout(() => goToMbtiOrNext(), 300);
-  }, [birthDate, addUserMsg, goToMbtiOrNext]);
+    setTimeout(() => goToMbti(), 300);
+  }, [birthDate, addUserMsg, goToMbti]);
 
   const handleBirthSkip = useCallback(() => {
     addUserMsg("건너뛰기");
     setBirthDate("");
     setShowInput(false);
-    setTimeout(() => goToMbtiOrNext(), 300);
-  }, [addUserMsg, goToMbtiOrNext]);
+    setTimeout(() => goToMbti(), 300);
+  }, [addUserMsg, goToMbti]);
 
-  const startMbtiFlow = useCallback(() => {
-    setMbtiParts([]);
-    addMessages(
-      [{ role: "ag", text: `${MBTI_STEPS[0].label}: 어느 쪽인가요?` }],
-      "mbti-ei"
-    );
-  }, [addMessages]);
+  // MBTI: "알아요" → text input
+  const handleMbtiKnow = useCallback(() => {
+    addUserMsg("알아요");
+    setShowInput(false);
+    setTimeout(() => {
+      addMessages([{ role: "ag", text: "어떤 타입이세요?" }], "mbti-input");
+    }, 300);
+  }, [addUserMsg, addMessages]);
 
+  // MBTI: "잘 모르겠어요" → skip
   const handleMbtiSkip = useCallback(() => {
     addUserMsg("잘 모르겠어요");
     setShowInput(false);
@@ -167,108 +338,101 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
         [{ role: "ag", text: "괜찮아요, 나중에 알게 되면 알려주세요 😊" }],
         undefined
       );
-      // proceed to kits or done
-      setTimeout(() => {
-        if (kits.length > 0) {
-          const kit = kits[0];
-          addMessages(
-            [
-              { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
-              ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
-            ],
-            "kit"
-          );
-          setKitIndex(0);
-        } else {
-          addMessages(
-            [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
-            "done"
-          );
-        }
-      }, 600);
+      setTimeout(() => proceedToKits(), 600);
     }, 300);
-  }, [addUserMsg, addMessages, kits]);
+  }, [addUserMsg, addMessages, proceedToKits]);
 
-  const handleMbtiSelect = useCallback(
-    (option: string) => {
-      addUserMsg(option);
-      setShowInput(false);
-      const newParts = [...mbtiParts, option];
-      setMbtiParts(newParts);
+  // MBTI: submit typed value
+  const handleMbtiSubmit = useCallback(() => {
+    const val = mbti.trim().toUpperCase();
+    if (val.length !== 4) return;
+    addUserMsg(val);
+    setMbti(val);
+    setShowInput(false);
+    setTimeout(() => {
+      addMessages(
+        [{ role: "ag", text: `좋아요! ${val}군요 😊` }],
+        undefined
+      );
+      setTimeout(() => proceedToKits(), 600);
+    }, 300);
+  }, [mbti, addUserMsg, addMessages, proceedToKits]);
 
-      const stepIdx = newParts.length; // next index
-      if (stepIdx < 4) {
-        setTimeout(() => {
-          addMessages(
-            [{ role: "ag", text: `${MBTI_STEPS[stepIdx].label}: 어느 쪽인가요?` }],
-            MBTI_STEPS[stepIdx].phase
-          );
-        }, 300);
-      } else {
-        // All 4 selected
-        const mbti = newParts.join("");
-        setTimeout(() => {
-          addMessages(
-            [{ role: "ag", text: `좋아요! ${mbti}군요 😊` }],
-            undefined
-          );
-          setTimeout(() => {
-            if (kits.length > 0) {
-              const kit = kits[0];
-              addMessages(
-                [
-                  { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
-                  ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
-                ],
-                "kit"
-              );
-              setKitIndex(0);
-            } else {
-              addMessages(
-                [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
-                "done"
-              );
-            }
-          }, 600);
-        }, 300);
-      }
-    },
-    [mbtiParts, addUserMsg, addMessages, kits]
-  );
-
+  // Kit: generic "다음 →" for unknown kits
   const handleKitNext = useCallback(() => {
     addUserMsg("다음 →");
     setShowInput(false);
-    const nextIdx = kitIndex + 1;
-    if (nextIdx < kits.length) {
-      setKitIndex(nextIdx);
-      const kit = kits[nextIdx];
-      setTimeout(() => {
-        addMessages(
-          [
-            { role: "ag", text: `${kit.name} Kit이 활성화됐어요 📦` },
-            ...(kit.guide ? [{ role: "ag" as ChatRole, text: kit.guide }] : []),
-          ],
-          "kit"
-        );
-      }, 300);
-    } else {
-      setTimeout(() => {
-        addMessages(
-          [{ role: "ag", text: "준비됐어요! 🚀 궁금한 게 있으면 언제든지 말해주세요." }],
-          "done"
-        );
-      }, 300);
-    }
-  }, [kitIndex, kits, addUserMsg, addMessages]);
+    setTimeout(() => startKitQuestions(kitIndex + 1), 300);
+  }, [kitIndex, addUserMsg, startKitQuestions]);
 
+  // Kit: choice answer
+  const handleKitChoice = useCallback(
+    (choice: string) => {
+      addUserMsg(choice);
+      setShowInput(false);
+
+      const kit = kits[kitIndex];
+      const flow = getKitFlow(kit);
+      if (!flow) return;
+
+      const q = flow.questions[kitQuestionIndex];
+      const stored = q.valueMap?.[choice] ?? choice;
+      const kitKey = kit.nameEn?.toLowerCase() ?? kit.id;
+      saveKitAnswer(kitKey, q.field, stored);
+
+      setTimeout(() => advanceKitQuestion(kitIndex, kitQuestionIndex), 300);
+    },
+    [kits, kitIndex, kitQuestionIndex, getKitFlow, addUserMsg, saveKitAnswer, advanceKitQuestion]
+  );
+
+  // Kit: text answer
+  const handleKitTextSubmit = useCallback(() => {
+    const val = textInput.trim();
+    if (!val) return;
+    addUserMsg(val);
+    setTextInput("");
+    setShowInput(false);
+
+    const kit = kits[kitIndex];
+    const flow = getKitFlow(kit);
+    if (!flow) return;
+
+    const q = flow.questions[kitQuestionIndex];
+    const kitKey = kit.nameEn?.toLowerCase() ?? kit.id;
+    saveKitAnswer(kitKey, q.field, val);
+
+    setTimeout(() => advanceKitQuestion(kitIndex, kitQuestionIndex), 300);
+  }, [textInput, kits, kitIndex, kitQuestionIndex, getKitFlow, addUserMsg, saveKitAnswer, advanceKitQuestion]);
+
+  // Kit: skip button for text input
+  const handleKitTextSkip = useCallback(() => {
+    const kit = kits[kitIndex];
+    const flow = getKitFlow(kit);
+    if (!flow) return;
+
+    const q = flow.questions[kitQuestionIndex];
+    const label = q.skipButton ?? "건너뛰기";
+    const val = q.skipValue ?? "";
+    addUserMsg(label);
+    setShowInput(false);
+
+    const kitKey = kit.nameEn?.toLowerCase() ?? kit.id;
+    saveKitAnswer(kitKey, q.field, val);
+
+    setTimeout(() => advanceKitQuestion(kitIndex, kitQuestionIndex), 300);
+  }, [kits, kitIndex, kitQuestionIndex, getKitFlow, addUserMsg, saveKitAnswer, advanceKitQuestion]);
+
+  // Done: save everything
   const handleComplete = useCallback(async () => {
     setSaving(true);
     try {
-      const update: Record<string, any> = { profile: {} };
-      if (birthDate) update.profile.birthDate = birthDate;
-      const mbti = mbtiParts.join("");
-      if (mbti.length === 4) update.profile.mbti = mbti;
+      const update: Record<string, unknown> = { profile: {} };
+      if (birthDate) (update.profile as Record<string, string>).birthDate = birthDate;
+      const mbtiVal = mbti.trim().toUpperCase();
+      if (mbtiVal.length === 4) (update.profile as Record<string, string>).mbti = mbtiVal;
+      if (Object.keys(kitPreferences).length > 0) {
+        update.kitPreferences = kitPreferences;
+      }
       await api.updateSettings(update as any);
     } catch {}
     try {
@@ -276,17 +440,27 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
     } catch {}
     setSaving(false);
     onComplete();
-  }, [birthDate, mbtiParts, onComplete]);
+  }, [birthDate, mbti, kitPreferences, onComplete]);
+
+  /* ─── Current kit question (if in kit-q phase) ─── */
+
+  const currentKitQuestion: KitQuestion | null =
+    phase === "kit-q" && kits[kitIndex]
+      ? (() => {
+          const flow = getKitFlow(kits[kitIndex]);
+          return flow?.questions[kitQuestionIndex] ?? null;
+        })()
+      : null;
 
   /* ─── Progress ─── */
 
-  const progressPhases: Phase[] = ["intro", "ask-birth", "ask-mbti", "mbti-ei", "mbti-sn", "mbti-tf", "mbti-jp", "mbti-result", "kit", "done"];
-  const progressIdx = progressPhases.indexOf(phase);
-  const progressPct = Math.min(100, Math.round(((progressIdx + 1) / progressPhases.length) * 100));
-
-  /* ─── Current MBTI step index ─── */
-
-  const currentMbtiStepIdx = MBTI_STEPS.findIndex((s) => s.phase === phase);
+  const totalSteps = 3 + kits.length + 1; // birth + mbti + kits + done
+  let currentStep = 1;
+  if (phase === "ask-birth") currentStep = 1;
+  else if (phase === "ask-mbti" || phase === "mbti-input") currentStep = 2;
+  else if (phase === "kit-intro" || phase === "kit-q") currentStep = 3 + kitIndex;
+  else if (phase === "done") currentStep = totalSteps;
+  const progressPct = Math.min(100, Math.round((currentStep / totalSteps) * 100));
 
   /* ─── Render ─── */
 
@@ -360,14 +534,14 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             </div>
           )}
 
-          {/* MBTI ask */}
+          {/* MBTI: ask if they know */}
           {phase === "ask-mbti" && (
             <div className="flex items-center gap-2 justify-center">
               <button
-                onClick={startMbtiFlow}
+                onClick={handleMbtiKnow}
                 className="px-5 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 transition-opacity"
               >
-                네, 알고 있어요
+                알아요
               </button>
               <button
                 onClick={handleMbtiSkip}
@@ -378,28 +552,77 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
             </div>
           )}
 
-          {/* MBTI selection steps */}
-          {currentMbtiStepIdx >= 0 && (
-            <div className="space-y-2">
-              <p className="text-xs text-center text-muted-foreground">
-                {MBTI_STEPS[currentMbtiStepIdx].label}
-              </p>
-              <div className="flex items-center gap-3 justify-center">
-                {MBTI_STEPS[currentMbtiStepIdx].options.map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => handleMbtiSelect(opt)}
-                    className="w-20 py-3 text-lg font-bold rounded-xl border border-border hover:bg-foreground hover:text-background transition-colors"
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
+          {/* MBTI: text input */}
+          {phase === "mbti-input" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={mbti}
+                onChange={(e) => setMbti(e.target.value.toUpperCase().slice(0, 4))}
+                placeholder="예: INFJ"
+                maxLength={4}
+                className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow uppercase tracking-widest text-center font-bold"
+                autoFocus
+              />
+              <button
+                onClick={handleMbtiSubmit}
+                disabled={mbti.trim().length !== 4}
+                className="px-5 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-30 transition-opacity"
+              >
+                확인
+              </button>
             </div>
           )}
 
-          {/* Kit next */}
-          {phase === "kit" && (
+          {/* Kit: custom question with choices */}
+          {phase === "kit-q" && currentKitQuestion?.type === "choice" && (
+            <div className="flex flex-wrap items-center gap-2 justify-center">
+              {currentKitQuestion.choices!.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => handleKitChoice(c)}
+                  className="px-4 py-2.5 text-sm rounded-xl border border-border hover:bg-foreground hover:text-background transition-colors"
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Kit: custom question with text input */}
+          {phase === "kit-q" && currentKitQuestion?.type === "text" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="입력해주세요..."
+                className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && textInput.trim()) handleKitTextSubmit();
+                }}
+              />
+              {currentKitQuestion.skipButton && (
+                <button
+                  onClick={handleKitTextSkip}
+                  className="px-4 py-2.5 text-sm rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  {currentKitQuestion.skipButton}
+                </button>
+              )}
+              <button
+                onClick={handleKitTextSubmit}
+                disabled={!textInput.trim()}
+                className="px-4 py-2.5 text-sm font-medium rounded-xl bg-foreground text-background hover:opacity-90 disabled:opacity-30 transition-opacity"
+              >
+                확인
+              </button>
+            </div>
+          )}
+
+          {/* Kit: unknown kit with guide, simple next */}
+          {phase === "kit-intro" && (
             <div className="flex justify-center">
               <button
                 onClick={handleKitNext}
