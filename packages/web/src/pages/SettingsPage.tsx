@@ -234,15 +234,6 @@ export function SettingsPage() {
       <SectionCard icon={User} title={t("settings.profile")}>
         <div className="grid grid-cols-1 gap-4 min-w-0">
           <div>
-            <label className={labelClass}>{t("settings.name")}</label>
-            <input
-              className={inputClass}
-              value={settings.profile.name}
-              onChange={(e) => update("profile", "name", e.target.value)}
-              placeholder={t("settings.namePlace")}
-            />
-          </div>
-          <div>
             <label className={labelClass}>{t("settings.birthDate")}</label>
             <input
               type="date"

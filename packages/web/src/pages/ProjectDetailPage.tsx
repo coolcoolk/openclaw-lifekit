@@ -15,6 +15,8 @@ import {
   ChevronRight,
   RefreshCw,
   X,
+  Trash2,
+  Save,
 } from "lucide-react";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
@@ -34,18 +36,9 @@ const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
   P3: { label: "P3", class: "bg-gray-500/15 text-gray-500" },
 };
 
-function getTaskStatusBadges(t: (key: string) => string): Record<string, { label: string; class: string }> {
-  return {
-    todo: { label: t("projectDetail.taskStatusTodo"), class: "bg-blue-500/15 text-blue-600" },
-    in_progress: { label: t("projectDetail.taskStatusInProgress"), class: "bg-yellow-500/15 text-yellow-600" },
-    done: { label: t("projectDetail.taskStatusDone"), class: "bg-green-500/15 text-green-600" },
-  };
-}
-
 export function ProjectDetailPage() {
   const { t } = useLanguage();
   const STATUS_BADGE = getStatusBadges(t);
-  const TASK_STATUS_BADGE = getTaskStatusBadges(t);
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [project, setProject] = useState<ProjectWithTasks | null>(null);
@@ -142,6 +135,24 @@ export function ProjectDetailPage() {
       await Promise.all([loadTasks(), loadProject()]);
     } catch (err) {
       console.error("Failed to toggle task:", err);
+    }
+  }
+
+  async function handleUpdateTask(id: string, data: Record<string, any>) {
+    try {
+      await api.updateTask(id, data as any);
+      await Promise.all([loadTasks(), loadProject()]);
+    } catch (err) {
+      console.error("Failed to update task:", err);
+    }
+  }
+
+  async function handleDeleteTask(id: string) {
+    try {
+      await api.deleteTask(id);
+      await Promise.all([loadTasks(), loadProject()]);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
     }
   }
 
@@ -416,6 +427,8 @@ export function ProjectDetailPage() {
                   onExpand={() =>
                     setExpandedTaskId(expandedTaskId === task.id ? null : task.id)
                   }
+                  onUpdate={handleUpdateTask}
+                  onDelete={handleDeleteTask}
                 />
               ))}
 
@@ -428,6 +441,8 @@ export function ProjectDetailPage() {
                   onExpand={(id) =>
                     setExpandedTaskId(expandedTaskId === id ? null : id)
                   }
+                  onUpdate={handleUpdateTask}
+                  onDelete={handleDeleteTask}
                 />
               )}
 
@@ -450,15 +465,53 @@ function DetailedTaskRow({
   expanded,
   onToggle,
   onExpand,
+  onUpdate,
+  onDelete,
 }: {
   task: Task;
   expanded: boolean;
   onToggle: () => void;
   onExpand: () => void;
+  onUpdate: (id: string, data: Record<string, any>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const isDone = task.status === "done";
   const priorityBadge = PRIORITY_BADGE[task.priority];
-  const statusBadge = TASK_STATUS_BADGE[task.status] || TASK_STATUS_BADGE.todo;
+
+  // Inline edit state
+  const [editTitle, setEditTitle] = useState(task.title);
+  const [editPriority, setEditPriority] = useState(task.priority || "P3");
+  const [editDueDate, setEditDueDate] = useState(task.dueDate || "");
+  const [editEstimate, setEditEstimate] = useState(task.estimatedMinutes?.toString() || "");
+  const [saving, setSaving] = useState(false);
+
+  // Reset edit state when task changes
+  useEffect(() => {
+    setEditTitle(task.title);
+    setEditPriority(task.priority || "P3");
+    setEditDueDate(task.dueDate || "");
+    setEditEstimate(task.estimatedMinutes?.toString() || "");
+  }, [task]);
+
+  async function handleSave() {
+    if (!editTitle.trim()) return;
+    setSaving(true);
+    try {
+      await onUpdate(task.id, {
+        title: editTitle.trim(),
+        priority: editPriority,
+        due_date: editDueDate || null,
+        estimated_minutes: editEstimate ? parseInt(editEstimate) : null,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("이 태스크를 삭제할까요?")) return;
+    await onDelete(task.id);
+  }
 
   return (
     <div
@@ -503,15 +556,6 @@ function DetailedTaskRow({
 
         {/* 배지들 */}
         <div className="flex items-center gap-2 shrink-0">
-          <span
-            className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded font-medium",
-              statusBadge.class
-            )}
-          >
-            {statusBadge.label}
-          </span>
-
           {priorityBadge && (
             <span
               className={cn(
@@ -537,53 +581,79 @@ function DetailedTaskRow({
             </span>
           )}
 
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            className="p-0.5 text-muted-foreground/40 hover:text-red-500 transition-colors"
+            title="삭제"
+          >
+            <Trash2 size={14} />
+          </button>
+
           <button onClick={onExpand} className="p-0.5 text-muted-foreground">
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
         </div>
       </div>
 
-      {/* 확장된 상세 정보 */}
+      {/* 확장된 인라인 수정 폼 */}
       {expanded && (
-        <div className="px-4 pb-3 pt-0 border-t border-border mx-4 mt-0 pt-3 space-y-2 text-xs text-muted-foreground">
-          {task.description && (
+        <div className="px-4 pb-4 pt-0 border-t border-border mx-4 mt-0 pt-3 space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">제목</label>
+            <input
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
             <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">우선순위</label>
+              <select
+                value={editPriority}
+                onChange={(e) => setEditPriority(e.target.value)}
+                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
+              >
+                <option value="P1">P1 (높음)</option>
+                <option value="P2">P2 (중간)</option>
+                <option value="P3">P3 (낮음)</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">마감일</label>
+              <input
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">예상 시간 (분)</label>
+              <input
+                type="number"
+                placeholder="분"
+                value={editEstimate}
+                onChange={(e) => setEditEstimate(e.target.value)}
+                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background w-20"
+              />
+            </div>
+          </div>
+          {task.description && (
+            <div className="text-xs text-muted-foreground">
               <span className="font-medium text-foreground/70">메모: </span>
               <span className="whitespace-pre-wrap">{task.description}</span>
             </div>
           )}
-          <div className="flex flex-wrap gap-x-6 gap-y-1">
-            <div>
-              <span className="font-medium text-foreground/70">우선순위: </span>
-              {task.priority}
-            </div>
-            <div>
-              <span className="font-medium text-foreground/70">상태: </span>
-              {statusBadge.label}
-            </div>
-            {task.estimatedMinutes && (
-              <div>
-                <span className="font-medium text-foreground/70">예상시간: </span>
-                {task.estimatedMinutes}분
-              </div>
-            )}
-            {task.dueDate && (
-              <div>
-                <span className="font-medium text-foreground/70">마감일: </span>
-                {task.dueDate}
-              </div>
-            )}
-            {task.completedAt && (
-              <div>
-                <span className="font-medium text-foreground/70">완료일: </span>
-                {task.completedAt.slice(0, 10)}
-              </div>
-            )}
-            {task.isRoutine && (
-              <div>
-                <span className="font-medium text-foreground/70">루틴: </span>✅
-              </div>
-            )}
+          <div className="flex justify-end">
+            <button
+              onClick={handleSave}
+              disabled={saving || !editTitle.trim()}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
+            >
+              <Save size={12} />
+              {saving ? "저장 중..." : "저장"}
+            </button>
           </div>
         </div>
       )}
@@ -597,11 +667,15 @@ function DoneTasksSection({
   expandedTaskId,
   onToggle,
   onExpand,
+  onUpdate,
+  onDelete,
 }: {
   tasks: Task[];
   expandedTaskId: string | null;
   onToggle: (task: Task) => void;
   onExpand: (id: string) => void;
+  onUpdate: (id: string, data: Record<string, any>) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
   const [showDone, setShowDone] = useState(false);
 
@@ -623,6 +697,8 @@ function DoneTasksSection({
               expanded={expandedTaskId === task.id}
               onToggle={() => onToggle(task)}
               onExpand={() => onExpand(task.id)}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
             />
           ))}
         </div>

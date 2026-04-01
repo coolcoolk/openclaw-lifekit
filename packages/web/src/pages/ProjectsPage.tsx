@@ -966,29 +966,14 @@ function CreateProjectModal({
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedDomain, setSelectedDomain] = useState("");
   const [selectedArea, setSelectedArea] = useState("");
-  const [areas, setAreas] = useState<Area[]>([]);
-  const [loadingAreas, setLoadingAreas] = useState(false);
+  const [allAreas, setAllAreas] = useState<Area[]>([]);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     nameRef.current?.focus();
+    api.getAreas().then(setAllAreas).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    if (!selectedDomain) {
-      setAreas([]);
-      setSelectedArea("");
-      return;
-    }
-    setLoadingAreas(true);
-    setSelectedArea("");
-    api.getAreas(selectedDomain)
-      .then(setAreas)
-      .catch(() => setAreas([]))
-      .finally(() => setLoadingAreas(false));
-  }, [selectedDomain]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1024,33 +1009,25 @@ function CreateProjectModal({
           />
 
           <select
-            value={selectedDomain}
-            onChange={(e) => setSelectedDomain(e.target.value)}
+            value={selectedArea}
+            onChange={(e) => setSelectedArea(e.target.value)}
             className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
           >
-            <option value="">{t("projects.selectDomain")}</option>
-            {domains.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.icon} {d.name}
-              </option>
-            ))}
+            <option value="">{t("projects.selectArea")}</option>
+            {domains.map((d) => {
+              const domainAreas = allAreas.filter((a) => a.domainId === d.id);
+              if (domainAreas.length === 0) return null;
+              return (
+                <optgroup key={d.id} label={`${d.icon || ""} ${d.name}`}>
+                  {domainAreas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.icon} {a.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
-
-          {selectedDomain && (
-            <select
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              disabled={loadingAreas}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
-            >
-              <option value="">{t("projects.selectArea")}</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.icon} {a.name}
-                </option>
-              ))}
-            </select>
-          )}
 
           <textarea
             placeholder={t("projects.descriptionOptional")}

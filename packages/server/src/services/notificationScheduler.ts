@@ -1,7 +1,6 @@
 import { db, sqlite } from "../db";
 import { reports } from "../db/schema";
 import { eq, and } from "drizzle-orm";
-import { getAdapter } from "../adapters";
 import { randomUUIDv7 } from "bun";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -59,11 +58,8 @@ function loadSettings(): RoutineSettings {
   }
 }
 
-function isAdapterConfigured(): boolean {
-  return !!(
-    process.env.LIFEKIT_AI_ADAPTER &&
-    (process.env.OPENCLAW_GATEWAY_URL || process.env.ANTHROPIC_API_KEY || process.env.OLLAMA_BASE_URL)
-  );
+function isGatewayConfigured(): boolean {
+  return !!(process.env.OPENCLAW_GATEWAY_URL && process.env.OPENCLAW_GATEWAY_TOKEN);
 }
 
 // 중복 실행 방지: 같은 작업을 같은 분(minute)에 다시 실행하지 않음
@@ -107,20 +103,75 @@ async function fetchAPI(path: string): Promise<any> {
   }
 }
 
-// ── AI 메시지 전송 ──
-async function sendAIMessage(prompt: string, systemPrompt?: string): Promise<string | null> {
-  try {
-    const adapter = getAdapter();
-    const response = await adapter.chat(
-      [{ role: "user", content: prompt }],
-      systemPrompt
-    );
-    console.log(`[scheduler] AI response (${adapter.name}):`, response.slice(0, 100) + "...");
-    return response;
-  } catch (err) {
-    console.error("[scheduler] AI message failed:", err);
+// ── OpenClaw 게이트웨이 통신 ──
+
+/**
+ * OpenClaw 게이트웨이에 프롬프트를 보내고 AI 응답 텍스트를 반환.
+ * 에이전트가 message tool로 텔레그램 전송까지 처리함.
+ */
+async function sendToGateway(prompt: string, maxTokens?: number): Promise<string | null> {
+  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+  const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+  const agentId = process.env.OPENCLAW_AGENT_ID || "main";
+
+  if (!gatewayUrl || !gatewayToken) {
+    console.error("[scheduler] Gateway not configured (OPENCLAW_GATEWAY_URL / OPENCLAW_GATEWAY_TOKEN)");
     return null;
   }
+
+  try {
+    const res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${gatewayToken}`,
+      },
+      body: JSON.stringify({
+        model: `openclaw:${agentId}`,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        ...(maxTokens ? { max_tokens: maxTokens } : {}),
+      }),
+      signal: AbortSignal.timeout(120000), // 2분 타임아웃
+    });
+
+    if (!res.ok) {
+      console.error(`[scheduler] Gateway error: ${res.status} ${res.statusText}`);
+      return null;
+    }
+
+    const data = await res.json() as any;
+    const content = data?.choices?.[0]?.message?.content || null;
+    console.log(`[scheduler] Gateway response:`, content?.slice(0, 100) || "(empty)");
+    return content;
+  } catch (err) {
+    console.error("[scheduler] Gateway request failed:", err);
+    return null;
+  }
+}
+
+/**
+ * 텔레그램에 직접 메시지 전송 (AI 생성 없이).
+ * 에이전트에게 "이 메시지를 그대로 보내라"고 지시.
+ */
+async function sendDirectMessage(content: string): Promise<void> {
+  const prompt = `다음 메시지를 텔레그램으로 전송해줘. 메시지 내용만 그대로 보내고 다른 말은 추가하지 마. 전송 후 NO_REPLY로만 응답해:
+
+${content}`;
+
+  await sendToGateway(prompt, 50);
+}
+
+/**
+ * AI가 내용을 생성한 후 텔레그램으로 전송.
+ * 프롬프트로 AI가 응답을 생성하면, 그 응답을 다시 에이전트를 통해 전송.
+ */
+async function generateAndSendMessage(prompt: string, systemContext?: string): Promise<string | null> {
+  const fullPrompt = `${systemContext ? `[시스템 컨텍스트: ${systemContext}]\n\n` : ""}${prompt}
+
+위 내용을 바탕으로 메시지를 작성하고 텔레그램으로 전송해줘. 전송 후 NO_REPLY로만 응답해.`;
+
+  return await sendToGateway(fullPrompt);
 }
 
 // ══════════════════════════════════════════
@@ -145,21 +196,20 @@ async function checkUpcomingEvents(): Promise<void> {
 
     if (upcoming.length === 0) return;
 
-    const eventList = upcoming
+    const eventLines = upcoming
       .map((t: any) => {
         const time = new Date(t.startAt).toLocaleTimeString("ko-KR", {
           hour: "2-digit",
           minute: "2-digit",
           timeZone: "Asia/Seoul",
         });
-        return `- ${time} ${t.title}`;
+        const location = t.location ? `\n  📍 ${t.location}` : "";
+        return `📌 ${t.title} — ${time}${location}`;
       })
       .join("\n");
 
-    await sendAIMessage(
-      `다음 일정이 30분 이내에 시작됩니다. 사용자에게 간결하게 리마인더를 보내주세요:\n\n${eventList}`,
-      "당신은 LifeKit 스케줄러입니다. 곧 시작되는 일정에 대해 짧고 친근한 리마인더 메시지를 보내주세요. 이모지를 적절히 사용하세요."
-    );
+    const message = `⏰ 30분 후 약속이 있어요!\n\n${eventLines}`;
+    await sendDirectMessage(message);
 
     console.log(`[scheduler] Reminder sent for ${upcoming.length} upcoming event(s)`);
   } catch (err) {
@@ -204,9 +254,9 @@ async function sendDailyBriefing(): Promise<void> {
     return;
   }
 
-  await sendAIMessage(
+  await generateAndSendMessage(
     `오늘 하루의 건강 기록을 요약해주세요:\n\n${promptParts.join("\n\n")}`,
-    "당신은 LifeKit 건강 브리핑 봇입니다. 오늘의 식단과 운동 기록을 간결하게 요약하고, 긍정적인 피드백과 개선점을 짧게 제안해주세요. 이모지를 활용하세요."
+    "LifeKit 건강 브리핑 봇. 오늘의 식단과 운동 기록을 간결하게 요약하고, 긍정적인 피드백과 개선점을 짧게 제안. 이모지 활용."
   );
 
   console.log(`[scheduler] Daily briefing sent for ${todayStr}`);
@@ -270,9 +320,9 @@ ${kitSummary ? `## 건강/활동 기록${kitSummary}` : ""}
 
 짧고 따뜻한 하루 회고를 작성해주세요.`;
 
-  const reviewContent = await sendAIMessage(
+  const reviewContent = await generateAndSendMessage(
     prompt,
-    "당신은 LifeKit 일일 회고 봇입니다. 하루를 간결하게 정리하고, 잘한 점과 개선할 점을 짧게 언급해주세요. 격려하는 톤으로 작성하세요."
+    "LifeKit 일일 회고 봇. 하루를 간결하게 정리하고, 잘한 점과 개선할 점을 짧게 언급. 격려하는 톤."
   );
 
   // reports DB에 저장
@@ -378,9 +428,9 @@ ${doneTasks.map((t: any) => `- ${t.title}`).join("\n") || "없음"}
 
 주간 회고를 작성하고, 다음 주를 위한 간단한 제안을 해주세요.`;
 
-  const reviewContent = await sendAIMessage(
+  const reviewContent = await generateAndSendMessage(
     prompt,
-    "당신은 LifeKit 주간 회고 봇입니다. 한 주를 종합적으로 정리하고, 영역별 밸런스를 평가하며, 다음 주를 위한 실질적인 제안을 해주세요."
+    "LifeKit 주간 회고 봇. 한 주를 종합적으로 정리하고, 영역별 밸런스를 평가하며, 다음 주를 위한 실질적인 제안."
   );
 
   // reports DB에 저장
