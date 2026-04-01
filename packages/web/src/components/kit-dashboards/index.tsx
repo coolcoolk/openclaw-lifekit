@@ -6,6 +6,7 @@ import { LearningDashboard } from "./LearningDashboard";
 import { CultureDashboard } from "./CultureDashboard";
 import { FashionDashboard } from "./FashionDashboard";
 import { HobbyDashboard } from "./HobbyDashboard";
+import { RelationsDashboard } from "./RelationsDashboard";
 
 // Kit nameEn → dashboard component mapping
 const KIT_DASHBOARDS: Record<string, React.ComponentType> = {
@@ -17,6 +18,7 @@ const KIT_DASHBOARDS: Record<string, React.ComponentType> = {
   culture: CultureDashboard,
   fashion: FashionDashboard,
   hobby: HobbyDashboard,
+  relations: RelationsDashboard,
 };
 
 export function getKitDashboard(kitId: string): React.ComponentType | null {
@@ -41,4 +43,5 @@ export {
   CultureDashboard,
   FashionDashboard,
   HobbyDashboard,
+  RelationsDashboard,
 };

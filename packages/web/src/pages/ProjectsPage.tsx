@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, type ProjectWithTasks, type Task, type Domain, type Kit } from "@/lib/api";
+import { api, type ProjectWithTasks, type Task, type Domain, type Area, type Kit } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
 import { cn } from "@/lib/utils";
@@ -92,7 +92,7 @@ export function ProjectsPage() {
     await api.createProject({
       name: data.name,
       description: data.description || null,
-      areaId: data.domainAreaId || null,
+      area_id: data.domainAreaId || null,
     } as any);
     setShowCreate(false);
     const updated = await api.getProjectsWithTasks();
@@ -967,11 +967,28 @@ function CreateProjectModal({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
+  const [selectedArea, setSelectedArea] = useState("");
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [loadingAreas, setLoadingAreas] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     nameRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (!selectedDomain) {
+      setAreas([]);
+      setSelectedArea("");
+      return;
+    }
+    setLoadingAreas(true);
+    setSelectedArea("");
+    api.getAreas(selectedDomain)
+      .then(setAreas)
+      .catch(() => setAreas([]))
+      .finally(() => setLoadingAreas(false));
+  }, [selectedDomain]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -979,7 +996,7 @@ function CreateProjectModal({
     onCreate({
       name: name.trim(),
       description: description.trim(),
-      domainAreaId: selectedDomain,
+      domainAreaId: selectedArea || "",
     });
   };
 
@@ -1018,6 +1035,22 @@ function CreateProjectModal({
               </option>
             ))}
           </select>
+
+          {selectedDomain && (
+            <select
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              disabled={loadingAreas}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50"
+            >
+              <option value="">{t("projects.selectArea")}</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.icon} {a.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <textarea
             placeholder={t("projects.descriptionOptional")}

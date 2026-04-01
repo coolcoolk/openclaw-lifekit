@@ -275,6 +275,8 @@ const translations: Record<string, Record<Language, string>> = {
   "projects.projectName": { ko: "프로젝트 이름", en: "Project name" },
   "projects.selectDomain": { ko: "도메인 선택 (선택사항)", en: "Select domain (optional)" },
   "projects.descriptionOptional": { ko: "설명 (선택사항)", en: "Description (optional)" },
+  "projects.deleteConfirm": { ko: "이 프로젝트를 삭제하면 모든 태스크도 함께 삭제돼요. 계속할까요?", en: "Deleting this project will also delete all tasks. Continue?" },
+  "projects.selectArea": { ko: "하위 영역 선택 (선택사항)", en: "Select area (optional)" },
 
   // Settings Page (additional)
   "settings.routineTime": { ko: "브리핑/회고 시간", en: "Briefing/Review Times" },

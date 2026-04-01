@@ -133,30 +133,38 @@ export function ProjectDetailPage() {
   );
 
   async function handleToggleTask(task: Task) {
-    const newStatus = task.status === "done" ? "todo" : "done";
-    await api.updateTask(task.id, {
-      status: newStatus,
-      completed_at: newStatus === "done" ? new Date().toISOString() : null,
-    } as any);
-    await Promise.all([loadTasks(), loadProject()]);
+    try {
+      const newStatus = task.status === "done" ? "todo" : "done";
+      await api.updateTask(task.id, {
+        status: newStatus,
+        completed_at: newStatus === "done" ? new Date().toISOString() : null,
+      } as any);
+      await Promise.all([loadTasks(), loadProject()]);
+    } catch (err) {
+      console.error("Failed to toggle task:", err);
+    }
   }
 
   async function handleAddTask() {
     if (!newTaskTitle.trim() || !projectId) return;
-    await api.createTask({
-      title: newTaskTitle.trim(),
-      project_id: projectId,
-      status: "todo",
-      priority: newTaskPriority,
-      estimated_minutes: newTaskEstimate ? parseInt(newTaskEstimate) : null,
-      due_date: newTaskDueDate || null,
-    } as any);
-    setNewTaskTitle("");
-    setNewTaskPriority("P3");
-    setNewTaskEstimate("");
-    setNewTaskDueDate("");
-    setShowNewTask(false);
-    await Promise.all([loadTasks(), loadProject()]);
+    try {
+      await api.createTask({
+        title: newTaskTitle.trim(),
+        project_id: projectId,
+        status: "todo",
+        priority: newTaskPriority,
+        estimated_minutes: newTaskEstimate ? parseInt(newTaskEstimate) : null,
+        due_date: newTaskDueDate || null,
+      } as any);
+      setNewTaskTitle("");
+      setNewTaskPriority("P3");
+      setNewTaskEstimate("");
+      setNewTaskDueDate("");
+      setShowNewTask(false);
+      await Promise.all([loadTasks(), loadProject()]);
+    } catch (err) {
+      console.error("Failed to add task:", err);
+    }
   }
 
   useEffect(() => {
@@ -171,7 +179,7 @@ export function ProjectDetailPage() {
     );
   }
 
-  if (!project) {
+  if (!project && !loading) {
     return (
       <div className="max-w-3xl mx-auto py-8 px-4 text-center">
         <p className="text-muted-foreground mb-4">{t("projectDetail.notFound")}</p>
@@ -181,6 +189,14 @@ export function ProjectDetailPage() {
         >
           {t("projectDetail.backToList")}
         </button>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        {t("projects.loading")}
       </div>
     );
   }
