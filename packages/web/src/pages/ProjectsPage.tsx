@@ -158,25 +158,37 @@ export function ProjectsPage() {
   if (selectedKit) {
     const Dashboard = getKitDashboard(selectedKit.id);
     return (
-      <div className="max-w-3xl mx-auto py-6 px-3 md:py-8 md:px-4">
-        <button
-          onClick={() => setSelectedKit(null)}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-4 transition-colors"
+      <div className="flex flex-col">
+        {/* sticky 헤더 with safe area */}
+        <div
+          className="sticky top-0 z-10 bg-background border-b border-border px-3 md:px-4 pt-3 pb-2"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
         >
-          <ArrowLeft size={16} />
-          {t("projects.goBack")}
-        </button>
-        <div className="flex items-center gap-2 mb-6">
-          <PackageCheck size={20} className="text-green-600" />
-          <h1 className="text-xl md:text-2xl font-bold">{selectedKit.name}</h1>
-        </div>
-        {Dashboard ? (
-          <Dashboard />
-        ) : (
-          <div className="border border-dashed border-border rounded-lg p-8 text-center">
-            <p className="text-sm text-muted-foreground">{t("projects.kitDashboardNotReady")}</p>
+          <div className="max-w-3xl mx-auto">
+            <button
+              onClick={() => setSelectedKit(null)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft size={16} />
+              {t("projects.goBack")}
+            </button>
+            <div className="flex items-center gap-2 mt-1">
+              <PackageCheck size={20} className="text-green-600" />
+              <h1 className="text-xl md:text-2xl font-bold">{selectedKit.name}</h1>
+            </div>
           </div>
-        )}
+        </div>
+
+        {/* 콘텐츠 */}
+        <div className="max-w-3xl mx-auto w-full px-3 md:px-4 py-4">
+          {Dashboard ? (
+            <Dashboard />
+          ) : (
+            <div className="border border-dashed border-border rounded-lg p-8 text-center">
+              <p className="text-sm text-muted-foreground">{t("projects.kitDashboardNotReady")}</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
