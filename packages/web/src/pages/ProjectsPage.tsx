@@ -19,6 +19,7 @@ import {
   Package,
   PackageCheck,
   ArrowLeft,
+  Trash2,
 } from "lucide-react";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
@@ -120,6 +121,13 @@ export function ProjectsPage() {
     } finally {
       setInstalling(null);
     }
+  }
+
+  async function handleDeleteProject(id: string) {
+    if (!window.confirm(t("projects.deleteConfirm") || "정말 이 프로젝트를 삭제할까요?")) return;
+    await api.deleteProject(id);
+    const updated = await api.getProjectsWithTasks();
+    setProjects(updated);
   }
 
   const installedKits = kits.filter((k) => k.installed);
@@ -332,6 +340,7 @@ export function ProjectsPage() {
                       navigate(`/projects/${p.id}`);
                     }
                   }}
+                  onDelete={handleDeleteProject}
                 />
               ))}
 
@@ -358,6 +367,7 @@ export function ProjectsPage() {
                               navigate(`/projects/${p.id}`);
                             }
                           }}
+                          onDelete={handleDeleteProject}
                         />
                       ))}
                     </div>
@@ -404,10 +414,12 @@ function ProjectCard({
   project: p,
   domainColor,
   onClick,
+  onDelete,
 }: {
   project: ProjectWithTasks;
   domainColor: string;
   onClick: () => void;
+  onDelete: (id: string) => void;
 }) {
   const { t } = useLanguage();
   const STATUS_BADGE = getStatusBadges(t);
@@ -421,7 +433,7 @@ function ProjectCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative border border-border rounded-lg px-4 py-3 transition-colors hover:bg-muted/30 cursor-pointer",
+        "group relative border border-border rounded-lg px-4 py-3 transition-colors hover:bg-muted/30 cursor-pointer",
         routine && "opacity-60"
       )}
       style={{ borderLeftWidth: 3, borderLeftColor: domainColor }}
@@ -472,6 +484,16 @@ function ProjectCard({
             </p>
           )}
         </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete(p.id);
+          }}
+          className="shrink-0 p-1.5 rounded-md text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 transition-colors"
+          title={t("common.delete") || "Delete"}
+        >
+          <Trash2 size={14} />
+        </button>
       </div>
     </div>
   );

@@ -1455,7 +1455,10 @@ export function CalendarPage() {
   return (
     <div className="flex flex-col h-full">
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border shrink-0">
+      <div
+        className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border shrink-0 sticky top-0 z-20 bg-background"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
         <div className="flex items-center gap-3">
           {!isMobile && (
             <button

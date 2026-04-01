@@ -218,6 +218,8 @@ export const api = {
     fetchJSON<Project>("/projects", { method: "POST", body: JSON.stringify(data) }),
   updateProject: (id: string, data: Partial<Project>) =>
     fetchJSON<Project>(`/projects/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  deleteProject: (id: string) =>
+    fetchJSON<void>(`/projects/${id}`, { method: "DELETE" }),
 
   // Tasks (통합: backlog + calendar)
   getTasks: (params?: { project_id?: string; area_id?: string; status?: string; before?: string; view?: string; start?: string; end?: string }) => {
