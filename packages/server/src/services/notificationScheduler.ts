@@ -466,8 +466,8 @@ ${doneTasks.map((t: any) => `- ${t.title}`).join("\n") || "없음"}
 // 메인 스케줄러
 // ══════════════════════════════════════════
 export function startNotificationScheduler(): void {
-  if (!isAdapterConfigured()) {
-    console.log("[scheduler] AI adapter not configured, notification scheduler disabled");
+  if (!isGatewayConfigured()) {
+    console.log("[scheduler] OpenClaw gateway not configured (OPENCLAW_GATEWAY_URL / OPENCLAW_GATEWAY_TOKEN), notification scheduler disabled");
     return;
   }
 

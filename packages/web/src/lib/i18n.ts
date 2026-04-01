@@ -98,8 +98,7 @@ const translations: Record<string, Record<Language, string>> = {
   // Settings
   "settings.title": { ko: "설정", en: "Settings" },
   "settings.profile": { ko: "프로필", en: "Profile" },
-  "settings.name": { ko: "이름", en: "Name" },
-  "settings.namePlace": { ko: "이름을 입력하세요", en: "Enter your name" },
+
   "settings.birthDate": { ko: "생년월일", en: "Birth Date" },
   "settings.timezone": { ko: "타임존", en: "Timezone" },
   "settings.routineTime": { ko: "루틴 시간", en: "Routine Times" },
