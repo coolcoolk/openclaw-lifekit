@@ -166,11 +166,10 @@ export function ProjectsPage() {
   if (selectedKit) {
     const Dashboard = getKitDashboard(selectedKit.id);
     return (
-      <div className="flex flex-col">
-        {/* sticky 헤더 with safe area */}
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* 고정 헤더 */}
         <div
-          className="sticky top-0 z-10 bg-background border-b border-border px-3 md:px-4 pt-3 pb-2"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 12px)' }}
+          className="shrink-0 z-10 bg-background border-b border-border px-3 md:px-4 pt-3 pb-2"
         >
           <div className="max-w-3xl mx-auto">
             <button
@@ -187,21 +186,24 @@ export function ProjectsPage() {
           </div>
         </div>
 
-        {/* 콘텐츠 */}
-        <div className="max-w-3xl mx-auto w-full px-3 md:px-4 py-4">
-          {Dashboard ? (
-            <Dashboard />
-          ) : (
-            <div className="border border-dashed border-border rounded-lg p-8 text-center">
-              <p className="text-sm text-muted-foreground">{t("projects.kitDashboardNotReady")}</p>
-            </div>
-          )}
+        {/* 스크롤 콘텐츠 */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto w-full px-3 md:px-4 py-4">
+            {Dashboard ? (
+              <Dashboard />
+            ) : (
+              <div className="border border-dashed border-border rounded-lg p-8 text-center">
+                <p className="text-sm text-muted-foreground">{t("projects.kitDashboardNotReady")}</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
+    <div className="h-full overflow-y-auto">
     <div className="max-w-3xl mx-auto py-6 px-3 md:py-8 md:px-4">
       {/* ── 활성화된 Kit 섹션 ── */}
       <div className="mb-8">
@@ -405,6 +407,7 @@ export function ProjectsPage() {
           onTasksChanged={loadData}
         />
       )}
+    </div>
     </div>
   );
 }

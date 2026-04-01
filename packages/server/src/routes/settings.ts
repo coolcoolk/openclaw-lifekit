@@ -141,9 +141,8 @@ async function checkAiStatus(): Promise<AiStatus> {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const res = await fetch(`${gatewayUrl}/v1/models`, {
+      const res = await fetch(`${gatewayUrl}/`, {
         signal: controller.signal,
-        headers: gatewayToken ? { Authorization: `Bearer ${gatewayToken}` } : {},
       });
       clearTimeout(timeout);
       return {

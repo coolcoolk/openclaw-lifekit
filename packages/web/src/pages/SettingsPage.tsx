@@ -78,7 +78,7 @@ const MBTI_TYPES = [
 ];
 
 const inputClass =
-  "w-full min-w-0 box-border px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors";
+  "w-full max-w-full min-w-0 box-border px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors appearance-none";
 
 const labelClass = "block text-sm font-medium text-foreground mb-1";
 

@@ -1453,11 +1453,10 @@ export function CalendarPage() {
   });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* 헤더 */}
       <div
-        className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border shrink-0 sticky top-0 z-20 bg-background"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        className="flex items-center justify-between px-4 py-3 md:px-6 md:py-4 border-b border-border shrink-0 z-20 bg-background"
       >
         <div className="flex items-center gap-3">
           {!isMobile && (
@@ -1516,7 +1515,7 @@ export function CalendarPage() {
       </div>
 
       {/* 사이드바 + 메인 캘린더 */}
-      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+      <div className="flex flex-1 min-h-0 relative">
         {/* 좌측 사이드바 */}
         {!isMobile && (
           <CalendarSidebar

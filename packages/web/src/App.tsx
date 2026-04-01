@@ -40,19 +40,20 @@ function Layout() {
 
   if (checkingProfile) {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex items-center justify-center" style={{ height: '100dvh' }}>
         <div className="animate-pulse text-muted-foreground text-sm">로딩 중...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen">
+    <div className="flex flex-col" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
+      <div className="flex flex-1 min-h-0">
       {!isMobile && (
         <Sidebar activePage={activePage} onNavigate={(page) => navigate(`/${page}`)} />
       )}
-      <main className={`flex-1 overflow-y-auto ${isMobile ? "pb-[72px]" : ""}`}>
+      <main className={`flex-1 overflow-hidden ${isMobile ? "pb-[72px]" : ""}`}>
         <Routes>
           <Route path="/" element={<Navigate to="/calendar" replace />} />
           <Route path="/calendar" element={<CalendarPage />} />
@@ -65,6 +66,7 @@ function Layout() {
           <Route path="*" element={<Navigate to="/calendar" replace />} />
         </Routes>
       </main>
+      </div>
       {isMobile && (
         <BottomTabBar activePage={activePage} onNavigate={(page) => navigate(`/${page}`)} />
       )}
