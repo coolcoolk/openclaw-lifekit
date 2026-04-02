@@ -558,6 +558,7 @@ function DetailedTaskRow({
             <input
               type="date"
               autoFocus
+              defaultValue=""
               value={editDueDate}
               onChange={(e) => {
                 setEditDueDate(e.target.value);
