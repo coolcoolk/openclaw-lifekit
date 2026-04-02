@@ -835,9 +835,9 @@ function ProjectDetailContent({
           {loadingTasks ? (
             <p className="text-xs text-muted-foreground py-4 text-center">{t("projects.loading")}</p>
           ) : (
-            <div className="space-y-1">
+            <div>
               {showNewTask && (
-                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30">
+                <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-muted/30 mb-2">
                   <div className="w-4 h-4 rounded border border-border shrink-0" />
                   <input
                     ref={newTaskRef}
@@ -855,6 +855,8 @@ function ProjectDetailContent({
                   />
                 </div>
               )}
+
+              {(pendingTasks.length > 0 || doneTasks.length > 0) && <TaskTableHeader />}
 
               {pendingTasks.map((task) => (
                 <TaskRow
@@ -896,7 +898,21 @@ function ProjectDetailContent({
   );
 }
 
-// ── 태스크 행 (모바일용 - 쉐브론/수정/삭제 포함) ──
+// ── 태스크 테이블 헤더 ──
+function TaskTableHeader() {
+  const { t } = useLanguage();
+  return (
+    <div className="grid grid-cols-[1fr_32px_48px_64px_32px] gap-0 border-b border-border px-2 py-1.5">
+      <span className="text-[11px] text-muted-foreground font-medium">{t("projects.taskName")}</span>
+      <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.done")}</span>
+      <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.priority")}</span>
+      <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.dueDate")}</span>
+      <span />
+    </div>
+  );
+}
+
+// ── 태스크 행 (노션 스타일 표 형식) ──
 function TaskRow({
   task,
   onToggle,
@@ -911,54 +927,76 @@ function TaskRow({
   const { t } = useLanguage();
   const isDone = task.status === "done";
   const priorityBadge = PRIORITY_BADGE[task.priority];
-  const [expanded, setExpanded] = useState(false);
+  const [editingField, setEditingField] = useState<string | null>(null);
 
-  // Inline edit state
   const [editTitle, setEditTitle] = useState(task.title);
   const [editPriority, setEditPriority] = useState(task.priority || "P3");
   const [editDueDate, setEditDueDate] = useState(task.dueDate || "");
-  const [editEstimate, setEditEstimate] = useState(task.estimatedMinutes?.toString() || "");
-  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setEditTitle(task.title);
     setEditPriority(task.priority || "P3");
     setEditDueDate(task.dueDate || "");
-    setEditEstimate(task.estimatedMinutes?.toString() || "");
   }, [task]);
 
-  async function handleSave() {
-    if (!editTitle.trim() || !onUpdate) return;
-    setSaving(true);
-    try {
-      await onUpdate(task.id, {
-        title: editTitle.trim(),
-        priority: editPriority,
-        due_date: editDueDate || null,
-        estimated_minutes: editEstimate ? parseInt(editEstimate) : null,
-      });
-      setExpanded(false);
-    } finally {
-      setSaving(false);
+  async function saveField(field: string, value: any) {
+    if (!onUpdate) return;
+    const data: Record<string, any> = {};
+    switch (field) {
+      case "title":
+        if (!value.trim()) { setEditTitle(task.title); return; }
+        data.title = value.trim();
+        break;
+      case "priority":
+        data.priority = value;
+        break;
+      case "dueDate":
+        data.due_date = value || null;
+        break;
     }
+    setEditingField(null);
+    await onUpdate(task.id, data);
   }
 
   async function handleDelete() {
     if (!onDelete) return;
-    if (!window.confirm(t("projects.deleteTaskConfirm") || "이 태스크를 삭제할까요?")) return;
+    if (!window.confirm(t("projects.deleteTaskConfirm"))) return;
     await onDelete(task.id);
   }
 
   return (
     <div
       className={cn(
-        "border border-border rounded-lg transition-colors",
-        isDone && "opacity-50",
-        expanded && "bg-muted/20"
+        "grid grid-cols-[1fr_32px_48px_64px_32px] gap-0 border-b border-border px-2 py-1.5 items-center hover:bg-muted/30 transition-colors group",
+        isDone && "opacity-50"
       )}
     >
-      {/* 메인 행 */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      {/* 이름 셀 */}
+      <div
+        className="min-w-0 pr-1 cursor-pointer"
+        onClick={() => onUpdate && setEditingField("title")}
+      >
+        {editingField === "title" ? (
+          <input
+            autoFocus
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onBlur={() => saveField("title", editTitle)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveField("title", editTitle);
+              if (e.key === "Escape") { setEditTitle(task.title); setEditingField(null); }
+            }}
+            className="w-full text-sm bg-background border border-border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/30"
+          />
+        ) : (
+          <span className={cn("text-sm truncate block", isDone && "line-through text-muted-foreground")}>
+            {task.title}
+          </span>
+        )}
+      </div>
+
+      {/* 완료 체크박스 */}
+      <div className="flex justify-center">
         <button
           onClick={onToggle}
           className={cn(
@@ -970,123 +1008,73 @@ function TaskRow({
         >
           {isDone && <Check size={10} />}
         </button>
-
-        <div
-          className="flex-1 min-w-0 cursor-pointer"
-          onClick={() => setExpanded(!expanded)}
-        >
-          <span
-            className={cn(
-              "text-sm truncate block",
-              isDone && "line-through text-muted-foreground"
-            )}
-          >
-            {task.title}
-          </span>
-          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            {priorityBadge && (
-              <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
-                {priorityBadge.label}
-              </span>
-            )}
-            {task.estimatedMinutes && (
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                <Clock size={9} />
-                {t("projects.minutes", { min: task.estimatedMinutes })}
-              </span>
-            )}
-            {task.dueDate && (
-              <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                <Calendar size={9} />
-                {task.dueDate.slice(5)}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1 shrink-0">
-          {onDelete && (
-            <button
-              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-              className="p-1 text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
-              title={t("common.delete") || "삭제"}
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-1 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-        </div>
       </div>
 
-      {/* 확장된 인라인 수정 폼 */}
-      {expanded && onUpdate && (
-        <div className="px-3 pb-3 border-t border-border mx-3 pt-3 space-y-3">
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">
-              {t("projects.taskTitle") || "제목"}
-            </label>
-            <input
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
-          </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                {t("projects.priority") || "우선순위"}
-              </label>
-              <select
-                value={editPriority}
-                onChange={(e) => setEditPriority(e.target.value)}
-                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
-              >
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                {t("projects.dueDate") || "마감일"}
-              </label>
-              <input
-                type="date"
-                value={editDueDate}
-                onChange={(e) => setEditDueDate(e.target.value)}
-                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">
-                {t("projects.estimatedTime") || "예상 시간 (분)"}
-              </label>
-              <input
-                type="number"
-                placeholder={t("projects.minutes", { min: "" }) || "분"}
-                value={editEstimate}
-                onChange={(e) => setEditEstimate(e.target.value)}
-                className="text-xs px-2 py-1.5 border border-border rounded-md bg-background w-20"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={handleSave}
-              disabled={saving || !editTitle.trim()}
-              className="flex items-center gap-1 text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              <Save size={12} />
-              {saving ? (t("common.saving") || "저장 중...") : (t("common.save") || "저장")}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* 우선순위 */}
+      <div
+        className="flex justify-center cursor-pointer"
+        onClick={() => onUpdate && setEditingField("priority")}
+      >
+        {editingField === "priority" ? (
+          <select
+            autoFocus
+            value={editPriority}
+            onChange={(e) => {
+              setEditPriority(e.target.value);
+              saveField("priority", e.target.value);
+            }}
+            onBlur={() => setEditingField(null)}
+            className="text-[10px] w-full bg-background border border-border rounded px-0.5 py-0.5 focus:outline-none"
+          >
+            <option value="P1">P1</option>
+            <option value="P2">P2</option>
+            <option value="P3">P3</option>
+          </select>
+        ) : (
+          priorityBadge && (
+            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
+              {priorityBadge.label}
+            </span>
+          )
+        )}
+      </div>
+
+      {/* 마감일 */}
+      <div
+        className="flex justify-center cursor-pointer"
+        onClick={() => onUpdate && setEditingField("dueDate")}
+      >
+        {editingField === "dueDate" ? (
+          <input
+            type="date"
+            autoFocus
+            value={editDueDate}
+            onChange={(e) => {
+              setEditDueDate(e.target.value);
+              saveField("dueDate", e.target.value);
+            }}
+            onBlur={() => setEditingField(null)}
+            className="text-[10px] w-full bg-background border border-border rounded px-0.5 py-0.5 focus:outline-none"
+          />
+        ) : (
+          <span className="text-[10px] text-muted-foreground">
+            {task.dueDate ? task.dueDate.slice(5) : "—"}
+          </span>
+        )}
+      </div>
+
+      {/* 삭제 */}
+      <div className="flex justify-center">
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+            className="p-0.5 text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+            title={t("common.delete")}
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

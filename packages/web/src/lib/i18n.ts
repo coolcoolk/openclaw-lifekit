@@ -276,6 +276,13 @@ const translations: Record<string, Record<Language, string>> = {
   "projects.descriptionOptional": { ko: "설명 (선택사항)", en: "Description (optional)" },
   "projects.deleteConfirm": { ko: "이 프로젝트를 삭제하면 모든 태스크도 함께 삭제돼요. 계속할까요?", en: "Deleting this project will also delete all tasks. Continue?" },
   "projects.selectArea": { ko: "하위 영역 선택 (선택사항)", en: "Select area (optional)" },
+  "projects.taskTitle": { ko: "제목", en: "Title" },
+  "projects.priority": { ko: "우선순위", en: "Priority" },
+  "projects.dueDate": { ko: "마감일", en: "Due Date" },
+  "projects.estimatedTime": { ko: "예상 시간", en: "Est. Time" },
+  "projects.taskName": { ko: "이름", en: "Name" },
+  "projects.done": { ko: "완료", en: "Done" },
+  "projects.deleteTaskConfirm": { ko: "이 태스크를 삭제할까요?", en: "Delete this task?" },
 
   // Settings Page (additional)
   "settings.routineTime": { ko: "브리핑/회고 시간", en: "Briefing/Review Times" },
