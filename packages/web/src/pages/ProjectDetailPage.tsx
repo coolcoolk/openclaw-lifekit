@@ -569,9 +569,9 @@ function DetailedTaskRow({
             {editDueDate && (
               <button
                 onMouseDown={(e) => { e.preventDefault(); setEditDueDate(""); saveField("dueDate", ""); setEditingField(null); }}
-                className="shrink-0 text-muted-foreground hover:text-red-500"
+                className="shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
               >
-                <X size={12} />
+                <X size={14} />
               </button>
             )}
           </div>
@@ -586,7 +586,7 @@ function DetailedTaskRow({
       <div className="flex justify-center">
         <button
           onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-          className="p-0.5 text-muted-foreground/30 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors opacity-0 group-hover:opacity-100"
+          className="w-7 h-7 flex items-center justify-center text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
           title={t("common.delete") || "삭제"}
         >
           <Trash2 size={14} />
