@@ -560,9 +560,16 @@ function DetailedTaskRow({
             value={editDueDate}
             onChange={(e) => {
               setEditDueDate(e.target.value);
-              saveField("dueDate", e.target.value);
             }}
-            onBlur={() => setEditingField(null)}
+            onBlur={(e) => {
+              saveField("dueDate", e.target.value);
+              setEditingField(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") { saveField("dueDate", editDueDate); setEditingField(null); }
+              if (e.key === "Escape") { setEditDueDate(task.dueDate || ""); setEditingField(null); }
+              if (e.key === "Delete" || e.key === "Backspace") { setEditDueDate(""); }
+            }}
             className="text-[11px] w-full bg-background border border-border rounded px-1 py-0.5 focus:outline-none"
           />
         ) : (
