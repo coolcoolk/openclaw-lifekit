@@ -34,11 +34,6 @@ function getStatusBadges(t: (key: string) => string): Record<StatusKey, { label:
   };
 }
 
-const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
-  P1: { label: "P1", class: "bg-red-500/15 text-red-600" },
-  P2: { label: "P2", class: "bg-orange-500/15 text-orange-600" },
-  P3: { label: "P3", class: "bg-gray-500/15 text-gray-500" },
-};
 
 function isRoutineProject(p: ProjectWithTasks) {
   return p.totalTasks > 0 && p.routineTasks / p.totalTasks >= 0.7;
@@ -694,7 +689,6 @@ function ProjectDetailContent({
       title: newTaskTitle.trim(),
       project_id: project.id,
       status: "todo",
-      priority: "P3",
     } as any);
     setNewTaskTitle("");
     setShowNewTask(false);
@@ -902,10 +896,9 @@ function ProjectDetailContent({
 function TaskTableHeader() {
   const { t } = useLanguage();
   return (
-    <div className="grid grid-cols-[1fr_32px_48px_64px_32px] gap-0 border-b border-border px-2 py-1.5">
+    <div className="grid grid-cols-[1fr_32px_64px_32px] gap-0 border-b border-border px-2 py-1.5">
       <span className="text-[11px] text-muted-foreground font-medium">{t("projects.taskName")}</span>
       <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.done")}</span>
-      <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.priority")}</span>
       <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.dueDate")}</span>
       <span />
     </div>
@@ -926,16 +919,13 @@ function TaskRow({
 }) {
   const { t } = useLanguage();
   const isDone = task.status === "done";
-  const priorityBadge = PRIORITY_BADGE[task.priority];
   const [editingField, setEditingField] = useState<string | null>(null);
 
   const [editTitle, setEditTitle] = useState(task.title);
-  const [editPriority, setEditPriority] = useState(task.priority || "P3");
   const [editDueDate, setEditDueDate] = useState(task.dueDate || "");
 
   useEffect(() => {
     setEditTitle(task.title);
-    setEditPriority(task.priority || "P3");
     setEditDueDate(task.dueDate || "");
   }, [task]);
 
@@ -946,9 +936,6 @@ function TaskRow({
       case "title":
         if (!value.trim()) { setEditTitle(task.title); return; }
         data.title = value.trim();
-        break;
-      case "priority":
-        data.priority = value;
         break;
       case "dueDate":
         data.due_date = value || null;
@@ -967,7 +954,7 @@ function TaskRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[1fr_32px_48px_64px_32px] gap-0 border-b border-border px-2 py-1.5 items-center hover:bg-muted/30 transition-colors group",
+        "grid grid-cols-[1fr_32px_64px_32px] gap-0 border-b border-border px-2 py-1.5 items-center hover:bg-muted/30 transition-colors group",
         isDone && "opacity-50"
       )}
     >
@@ -1008,35 +995,6 @@ function TaskRow({
         >
           {isDone && <Check size={10} />}
         </button>
-      </div>
-
-      {/* 우선순위 */}
-      <div
-        className="flex justify-center cursor-pointer"
-        onClick={() => onUpdate && setEditingField("priority")}
-      >
-        {editingField === "priority" ? (
-          <select
-            autoFocus
-            value={editPriority}
-            onChange={(e) => {
-              setEditPriority(e.target.value);
-              saveField("priority", e.target.value);
-            }}
-            onBlur={() => setEditingField(null)}
-            className="text-[10px] w-full bg-background border border-border rounded px-0.5 py-0.5 focus:outline-none"
-          >
-            <option value="P1">P1</option>
-            <option value="P2">P2</option>
-            <option value="P3">P3</option>
-          </select>
-        ) : (
-          priorityBadge && (
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
-              {priorityBadge.label}
-            </span>
-          )
-        )}
       </div>
 
       {/* 마감일 */}

@@ -30,11 +30,6 @@ function getStatusBadges(t: (key: string) => string): Record<StatusKey, { label:
   };
 }
 
-const PRIORITY_BADGE: Record<string, { label: string; class: string }> = {
-  P1: { label: "P1", class: "bg-red-500/15 text-red-600" },
-  P2: { label: "P2", class: "bg-orange-500/15 text-orange-600" },
-  P3: { label: "P3", class: "bg-gray-500/15 text-gray-500" },
-};
 
 export function ProjectDetailPage() {
   const { t } = useLanguage();
@@ -55,7 +50,6 @@ export function ProjectDetailPage() {
   // New task form
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [newTaskPriority, setNewTaskPriority] = useState("P3");
   const [newTaskEstimate, setNewTaskEstimate] = useState("");
   const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const newTaskRef = useRef<HTMLInputElement>(null);
@@ -163,12 +157,10 @@ export function ProjectDetailPage() {
         title: newTaskTitle.trim(),
         project_id: projectId,
         status: "todo",
-        priority: newTaskPriority,
         estimated_minutes: newTaskEstimate ? parseInt(newTaskEstimate) : null,
         due_date: newTaskDueDate || null,
       } as any);
       setNewTaskTitle("");
-      setNewTaskPriority("P3");
       setNewTaskEstimate("");
       setNewTaskDueDate("");
       setShowNewTask(false);
@@ -373,15 +365,6 @@ export function ProjectDetailPage() {
                     className="w-full text-sm bg-background border border-border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                   <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      value={newTaskPriority}
-                      onChange={(e) => setNewTaskPriority(e.target.value)}
-                      className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
-                    >
-                      <option value="P1">P1 (높음)</option>
-                      <option value="P2">P2 (중간)</option>
-                      <option value="P3">P3 (낮음)</option>
-                    </select>
                     <input
                       type="number"
                       placeholder="예상 (분)"
@@ -458,10 +441,9 @@ export function ProjectDetailPage() {
 function DetailedTaskTableHeader() {
   const { t } = useLanguage();
   return (
-    <div className="grid grid-cols-[1fr_36px_56px_80px_36px] gap-0 border-b border-border px-3 py-1.5">
+    <div className="grid grid-cols-[1fr_36px_80px_36px] gap-0 border-b border-border px-3 py-1.5">
       <span className="text-[11px] text-muted-foreground font-medium">{t("projects.taskName")}</span>
       <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.done")}</span>
-      <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.priority")}</span>
       <span className="text-[11px] text-muted-foreground font-medium text-center">{t("projects.dueDate")}</span>
       <span />
     </div>
@@ -482,16 +464,13 @@ function DetailedTaskRow({
 }) {
   const { t } = useLanguage();
   const isDone = task.status === "done";
-  const priorityBadge = PRIORITY_BADGE[task.priority];
   const [editingField, setEditingField] = useState<string | null>(null);
 
   const [editTitle, setEditTitle] = useState(task.title);
-  const [editPriority, setEditPriority] = useState(task.priority || "P3");
   const [editDueDate, setEditDueDate] = useState(task.dueDate || "");
 
   useEffect(() => {
     setEditTitle(task.title);
-    setEditPriority(task.priority || "P3");
     setEditDueDate(task.dueDate || "");
   }, [task]);
 
@@ -501,9 +480,6 @@ function DetailedTaskRow({
       case "title":
         if (!value.trim()) { setEditTitle(task.title); return; }
         data.title = value.trim();
-        break;
-      case "priority":
-        data.priority = value;
         break;
       case "dueDate":
         data.due_date = value || null;
@@ -521,7 +497,7 @@ function DetailedTaskRow({
   return (
     <div
       className={cn(
-        "grid grid-cols-[1fr_36px_56px_80px_36px] gap-0 border-b border-border px-3 py-2 items-center hover:bg-muted/30 transition-colors group",
+        "grid grid-cols-[1fr_36px_80px_36px] gap-0 border-b border-border px-3 py-2 items-center hover:bg-muted/30 transition-colors group",
         isDone && "opacity-50"
       )}
     >
@@ -570,35 +546,6 @@ function DetailedTaskRow({
         >
           {isDone && <Check size={12} />}
         </button>
-      </div>
-
-      {/* 우선순위 */}
-      <div
-        className="flex justify-center cursor-pointer"
-        onClick={() => setEditingField("priority")}
-      >
-        {editingField === "priority" ? (
-          <select
-            autoFocus
-            value={editPriority}
-            onChange={(e) => {
-              setEditPriority(e.target.value);
-              saveField("priority", e.target.value);
-            }}
-            onBlur={() => setEditingField(null)}
-            className="text-[11px] w-full bg-background border border-border rounded px-1 py-0.5 focus:outline-none"
-          >
-            <option value="P1">P1</option>
-            <option value="P2">P2</option>
-            <option value="P3">P3</option>
-          </select>
-        ) : (
-          priorityBadge && (
-            <span className={cn("text-[10px] px-1.5 py-0.5 rounded font-medium", priorityBadge.class)}>
-              {priorityBadge.label}
-            </span>
-          )
-        )}
       </div>
 
       {/* 마감일 */}
