@@ -18,6 +18,7 @@ import {
   Trash2,
   Save,
 } from "lucide-react";
+import { DueDatePicker } from "@/components/DueDatePicker";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
 
@@ -549,38 +550,14 @@ function DetailedTaskRow({
       </div>
 
       {/* 마감일 */}
-      <div
-        className="flex justify-center cursor-pointer"
-        onClick={() => setEditingField("dueDate")}
-      >
-        {editingField === "dueDate" ? (
-          <div className="flex items-center gap-0.5">
-            <input
-              type="date"
-              autoFocus
-              defaultValue=""
-              value={editDueDate}
-              onChange={(e) => {
-                setEditDueDate(e.target.value);
-                saveField("dueDate", e.target.value);
-              }}
-              onBlur={() => setEditingField(null)}
-              className="text-[11px] w-full bg-background border border-border rounded px-1 py-0.5 focus:outline-none"
-            />
-            {editDueDate && (
-              <button
-                onMouseDown={(e) => { e.preventDefault(); setEditDueDate(""); saveField("dueDate", ""); setEditingField(null); }}
-                className="shrink-0 w-6 h-6 flex items-center justify-center text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">
-            {task.dueDate ? task.dueDate.slice(5) : "—"}
-          </span>
-        )}
+      <div className="flex justify-center">
+        <DueDatePicker
+          value={editDueDate}
+          onChange={(val) => {
+            setEditDueDate(val);
+            saveField("dueDate", val);
+          }}
+        />
       </div>
 
       {/* 삭제 */}

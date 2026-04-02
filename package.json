@@ -17,5 +17,9 @@
   },
   "bin": {
     "lifekit": "packages/cli/src/index.ts"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "react-day-picker": "^9.14.0"
   }
 }
