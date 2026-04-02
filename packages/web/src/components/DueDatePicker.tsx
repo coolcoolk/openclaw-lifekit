@@ -15,7 +15,6 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
 
   const selected = value ? new Date(value + "T00:00:00") : undefined;
 
-  // 외부 클릭 시 닫기
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
@@ -45,6 +44,8 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
     onClose?.();
   }
 
+  const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
   return (
     <div ref={ref} className="relative">
       <button
@@ -62,18 +63,30 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
       </button>
 
       {open && (
-        <div className="absolute z-50 bg-background border border-border rounded-lg shadow-lg p-2 top-6 left-0">
-          <DayPicker
-            mode="single"
-            selected={selected}
-            onSelect={handleSelect}
-            styles={{
-              root: { fontSize: "13px" },
-              caption: { padding: "4px 0" },
-              day: { width: "32px", height: "32px" },
-            }}
+        <>
+          {/* 배경 오버레이 */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => { setOpen(false); onClose?.(); }}
           />
-        </div>
+          {/* 달력 팝업 — 화면 중앙 고정 */}
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-background border border-border rounded-xl shadow-xl p-3">
+            <DayPicker
+              mode="single"
+              selected={selected}
+              onSelect={handleSelect}
+              formatters={{
+                formatCaption: (date: Date) =>
+                  `${date.getFullYear()}년 ${date.getMonth() + 1}월`,
+                formatWeekdayName: (day: Date) => WEEKDAYS[day.getDay()],
+              }}
+              styles={{
+                root: { fontSize: "14px" },
+                day: { width: "36px", height: "36px" },
+              }}
+            />
+          </div>
+        </>
       )}
     </div>
   );
