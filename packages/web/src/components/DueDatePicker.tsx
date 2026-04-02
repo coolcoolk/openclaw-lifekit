@@ -37,8 +37,7 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
     onClose?.();
   }
 
-  function handleClear(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleClear() {
     onChange("");
     setOpen(false);
     onClose?.();
@@ -55,11 +54,6 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
       >
         <Calendar size={12} />
         <span>{value ? value.slice(5).replace("-", "/") : "날짜 없음"}</span>
-        {value && (
-          <span onClick={handleClear} className="ml-1 hover:text-red-500">
-            <X size={11} />
-          </span>
-        )}
       </button>
 
       {open && (
@@ -85,6 +79,22 @@ export function DueDatePicker({ value, onChange, onClose }: DueDatePickerProps) 
                 day: { width: "36px", height: "36px" },
               }}
             />
+            {/* 날짜 지우기 버튼 */}
+            {value && (
+              <button
+                onClick={handleClear}
+                className="mt-2 w-full py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+              >
+                날짜 지우기
+              </button>
+            )}
+            {/* 닫기 버튼 */}
+            <button
+              onClick={() => { setOpen(false); onClose?.(); }}
+              className="mt-1 w-full py-2 text-sm text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+            >
+              닫기
+            </button>
           </div>
         </>
       )}
