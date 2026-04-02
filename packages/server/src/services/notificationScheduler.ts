@@ -1,5 +1,5 @@
 import { db, sqlite } from "../db";
-import { reports } from "../db/schema";
+import { reports, tasks } from "../db/schema";
 import { eq, and } from "drizzle-orm";
 import { randomUUIDv7 } from "bun";
 import { readFileSync, existsSync } from "fs";
@@ -463,6 +463,100 @@ ${doneTasks.map((t: any) => `- ${t.title}`).join("\n") || "없음"}
 }
 
 // ══════════════════════════════════════════
+// 5. 루틴 태스크 자동 생성 (일요일 00:00 KST)
+// ══════════════════════════════════════════
+async function generateWeeklyRoutineTasks(): Promise<void> {
+  const todayStr = getKSTDateStr();
+  const jobKey = `routine-week-${todayStr}`;
+  if (!shouldRun(jobKey)) return;
+
+  // 다음주 월~일 날짜 계산 (KST 기준 일요일 00:00에 실행)
+  const today = getKSTDate();
+  const nextMonday = new Date(today);
+  nextMonday.setUTCDate(today.getUTCDate() + 1); // 일요일+1 = 월요일
+
+  const weekDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(nextMonday);
+    d.setUTCDate(nextMonday.getUTCDate() + i);
+    weekDates.push(d.toISOString().split("T")[0]);
+  }
+
+  // 루틴 태스크 조회 (is_routine = 1)
+  const routineTasks = db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.isRoutine, true))
+    .all();
+
+  let created = 0;
+  for (const routine of routineTasks) {
+    if (!routine.routineRule) continue;
+
+    let rule: { freq?: string; days?: number[]; time?: string };
+    try {
+      rule = JSON.parse(routine.routineRule);
+    } catch {
+      continue;
+    }
+
+    const days: number[] = rule.days || [];
+
+    for (const dateStr of weekDates) {
+      const dayOfWeek = new Date(dateStr + "T00:00:00Z").getUTCDay();
+      if (!days.includes(dayOfWeek)) continue;
+
+      // 이미 같은 날짜+루틴으로 생성된 태스크 있으면 스킵
+      // source="routine" + title + projectId + startAt 날짜 조합으로 체크
+      const startAt = rule.time
+        ? `${dateStr}T${rule.time}:00`
+        : `${dateStr}T00:00:00`;
+
+      const existingQuery = routine.projectId
+        ? `SELECT COUNT(*) as cnt FROM tasks WHERE source = 'routine' AND title = ? AND start_at = ? AND project_id = ?`
+        : `SELECT COUNT(*) as cnt FROM tasks WHERE source = 'routine' AND title = ? AND start_at = ? AND project_id IS NULL`;
+
+      const existingParams = routine.projectId
+        ? [routine.title, startAt, routine.projectId]
+        : [routine.title, startAt];
+
+      const existing = sqlite
+        .query<{ cnt: number }, string[]>(existingQuery)
+        .get(...existingParams);
+
+      if (existing && existing.cnt > 0) continue;
+
+      // 태스크 생성
+      const newId = randomUUIDv7();
+      const now = new Date().toISOString();
+
+      db.insert(tasks)
+        .values({
+          id: newId,
+          title: routine.title,
+          projectId: routine.projectId,
+          areaId: routine.areaId,
+          status: "todo",
+          priority: routine.priority || "P2",
+          isRoutine: false, // 생성된 인스턴스는 루틴 아님
+          routineRule: null,
+          startAt,
+          allDay: !rule.time,
+          source: "routine",
+          linkedDomainId: routine.linkedDomainId,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .run();
+
+      created++;
+    }
+  }
+
+  console.log(`[scheduler] Routine tasks generated: ${created} tasks for next week`);
+}
+
+// ══════════════════════════════════════════
 // 메인 스케줄러
 // ══════════════════════════════════════════
 export function startNotificationScheduler(): void {
@@ -502,6 +596,13 @@ export function startNotificationScheduler(): void {
       if (currentDay === settings.weeklyReviewDay && currentTime === settings.weeklyReviewTime) {
         generateWeeklyReview().catch((err) =>
           console.error("[scheduler] Weekly review failed:", err.message)
+        );
+      }
+
+      // 4. 일요일 00:00에 루틴 태스크 자동 생성
+      if (currentDay === 0 && currentTime === "00:00") {
+        generateWeeklyRoutineTasks().catch((err) =>
+          console.error("[scheduler] Routine task generation failed:", err.message)
         );
       }
     } catch (err: any) {

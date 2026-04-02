@@ -23,6 +23,7 @@ import {
   Save,
 } from "lucide-react";
 import { DueDatePicker } from "@/components/DueDatePicker";
+import { RoutineTaskModal } from "@/components/RoutineTaskModal";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
 
@@ -595,7 +596,7 @@ function ProjectDetailContent({
   onUpdate: (id: string, data: Partial<ProjectWithTasks>) => void;
   onTasksChanged: () => void;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const STATUS_BADGE = getStatusBadges(t);
   const [name, setName] = useState(project.name);
   const [description, setDescription] = useState(project.description || "");
@@ -605,6 +606,7 @@ function ProjectDetailContent({
   const [loadingTasks, setLoadingTasks] = useState(true);
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [showNewTask, setShowNewTask] = useState(false);
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
   const newTaskRef = useRef<HTMLInputElement>(null);
 
   const domainColor = project.domainColor || DOMAIN_COLORS["default"];
@@ -818,13 +820,22 @@ function ProjectDetailContent({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">{t("projects.tasksSection")}</h3>
-            <button
-              onClick={() => setShowNewTask(true)}
-              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
-            >
-              <Plus size={14} />
-              {t("projects.addTask")}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowRoutineModal(true)}
+                className="flex items-center gap-1 text-xs text-purple-500 hover:text-purple-600 transition-colors"
+              >
+                <RefreshCw size={12} />
+                {language === "ko" ? "루틴" : "Routine"}
+              </button>
+              <button
+                onClick={() => setShowNewTask(true)}
+                className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+              >
+                <Plus size={14} />
+                {t("projects.addTask")}
+              </button>
+            </div>
           </div>
 
           {loadingTasks ? (
@@ -888,6 +899,18 @@ function ProjectDetailContent({
             </div>
           )}
         </div>
+
+        {/* 루틴 모달 */}
+        {showRoutineModal && (
+          <RoutineTaskModal
+            projectId={project.id}
+            onClose={() => setShowRoutineModal(false)}
+            onCreated={() => {
+              loadTasks();
+              onTasksChanged();
+            }}
+          />
+        )}
       </div>
     </>
   );

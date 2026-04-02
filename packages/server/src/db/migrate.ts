@@ -239,6 +239,7 @@ sqlite.exec(`
 try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_start_at ON tasks(start_at)"); } catch {}
 try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_external_id ON tasks(external_id)"); } catch {}
 try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_source ON tasks(source)"); } catch {}
+try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_is_routine ON tasks(is_routine)"); } catch {}
 
 // calendar_events → tasks 데이터 마이그레이션 (아직 마이그레이션 안 된 것만)
 try {

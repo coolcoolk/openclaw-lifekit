@@ -19,6 +19,7 @@ import {
   Save,
 } from "lucide-react";
 import { DueDatePicker } from "@/components/DueDatePicker";
+import { RoutineTaskModal } from "@/components/RoutineTaskModal";
 
 type StatusKey = "active" | "backlog" | "paused" | "completed";
 
@@ -57,6 +58,9 @@ export function ProjectDetailPage() {
 
   // Expanded task for detail view
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+
+  // Routine modal
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
 
   useEffect(() => {
     if (!projectId) return;
@@ -334,13 +338,22 @@ export function ProjectDetailPage() {
       <div className="border border-border rounded-lg">
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <h3 className="text-sm font-semibold">📋 태스크</h3>
-          <button
-            onClick={() => setShowNewTask(true)}
-            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-          >
-            <Plus size={14} />
-            태스크 추가
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowRoutineModal(true)}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md border border-purple-300 text-purple-600 hover:bg-purple-50 transition-colors"
+            >
+              <RefreshCw size={14} />
+              루틴 추가
+            </button>
+            <button
+              onClick={() => setShowNewTask(true)}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={14} />
+              태스크 추가
+            </button>
+          </div>
         </div>
 
         <div className="p-3">
@@ -434,6 +447,14 @@ export function ProjectDetailPage() {
           )}
         </div>
       </div>
+      {/* 루틴 모달 */}
+      {showRoutineModal && (
+        <RoutineTaskModal
+          projectId={projectId}
+          onClose={() => setShowRoutineModal(false)}
+          onCreated={() => Promise.all([loadTasks(), loadProject()])}
+        />
+      )}
     </div>
   );
 }

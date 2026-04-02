@@ -15,6 +15,7 @@ import {
   PanelLeftClose, PanelLeftOpen, ChevronLeft, ChevronRight,
   Copy, Trash2, GripVertical, Check, Users,
 } from "lucide-react";
+import { RoutineTaskModal } from "@/components/RoutineTaskModal";
 
 // ── 이벤트 색상 헬퍼 ──
 function eventColor(task: Task): string {
@@ -1103,6 +1104,7 @@ export function CalendarPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [hiddenDomains, setHiddenDomains] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showRoutineModal, setShowRoutineModal] = useState(false);
 
   // ── 삭제 Undo 상태 ──
   const [pendingDelete, setPendingDelete] = useState<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
@@ -1501,6 +1503,13 @@ export function CalendarPage() {
             <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
           </button>
           <button
+            onClick={() => setShowRoutineModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-purple-300 text-purple-600 hover:bg-purple-50 transition-colors min-h-[44px]"
+          >
+            <RefreshCw size={16} />
+            <span className="hidden md:inline">{language === "ko" ? "루틴" : "Routine"}</span>
+          </button>
+          <button
             onClick={() => {
               setCreateStart(undefined);
               setCreateEnd(undefined);
@@ -1739,6 +1748,18 @@ export function CalendarPage() {
           {t("calendar.undo")}
         </button>
       </div>
+
+      {/* 루틴 모달 */}
+      {showRoutineModal && (
+        <RoutineTaskModal
+          onClose={() => setShowRoutineModal(false)}
+          onCreated={() => {
+            if (dateRangeRef.current) {
+              loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
