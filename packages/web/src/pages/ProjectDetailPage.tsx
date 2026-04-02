@@ -554,24 +554,27 @@ function DetailedTaskRow({
         onClick={() => setEditingField("dueDate")}
       >
         {editingField === "dueDate" ? (
-          <input
-            type="date"
-            autoFocus
-            value={editDueDate}
-            onChange={(e) => {
-              setEditDueDate(e.target.value);
-            }}
-            onBlur={(e) => {
-              saveField("dueDate", e.target.value);
-              setEditingField(null);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") { saveField("dueDate", editDueDate); setEditingField(null); }
-              if (e.key === "Escape") { setEditDueDate(task.dueDate || ""); setEditingField(null); }
-              if (e.key === "Delete" || e.key === "Backspace") { setEditDueDate(""); }
-            }}
-            className="text-[11px] w-full bg-background border border-border rounded px-1 py-0.5 focus:outline-none"
-          />
+          <div className="flex items-center gap-0.5">
+            <input
+              type="date"
+              autoFocus
+              value={editDueDate}
+              onChange={(e) => {
+                setEditDueDate(e.target.value);
+                saveField("dueDate", e.target.value);
+              }}
+              onBlur={() => setEditingField(null)}
+              className="text-[11px] w-full bg-background border border-border rounded px-1 py-0.5 focus:outline-none"
+            />
+            {editDueDate && (
+              <button
+                onMouseDown={(e) => { e.preventDefault(); setEditDueDate(""); saveField("dueDate", ""); setEditingField(null); }}
+                className="shrink-0 text-muted-foreground hover:text-red-500"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
         ) : (
           <span className="text-xs text-muted-foreground">
             {task.dueDate ? task.dueDate.slice(5) : "—"}
