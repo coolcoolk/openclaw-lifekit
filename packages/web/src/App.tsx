@@ -19,6 +19,19 @@ function Layout() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
 
+  // iOS PWA: 실제 뷰포트 높이를 CSS 변수로 설정
+  useEffect(() => {
+    const setVh = () => {
+      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+    };
+    setVh();
+    window.addEventListener('resize', setVh);
+    window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
+    return () => {
+      window.removeEventListener('resize', setVh);
+    };
+  }, []);
+
   useEffect(() => {
     api.getSettings()
       .then((settings) => {
@@ -47,7 +60,7 @@ function Layout() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: '100dvh', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div className="flex flex-col" style={{ height: 'var(--app-height, 100dvh)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       <div className="flex flex-1 min-h-0">
       {!isMobile && (

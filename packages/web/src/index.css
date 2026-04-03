@@ -208,6 +208,8 @@ body {
 
 /* ── 모바일 safe area ── */
 .safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  /* iOS PWA: 초기 렌더 시 safe-area 값이 0으로 잡히는 문제 방지 */
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 

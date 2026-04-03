@@ -1654,9 +1654,10 @@ export function CalendarPage() {
       const now = new Date();
       const h = Math.max(0, now.getHours() - 1);
       const scrollTime = `${String(h).padStart(2, "0")}:00:00`;
+      // iOS PWA에서 레이아웃 완료 후 스크롤 (300ms)
       setTimeout(() => {
         calendarRef.current?.getApi().scrollToTime(scrollTime);
-      }, 100);
+      }, 300);
     },
     [loadEvents],
   );
