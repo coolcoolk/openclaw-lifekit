@@ -730,83 +730,9 @@ function EventDetailContent({
             className={`${inputClass} resize-none`}
           />
         </div>
-      </div>
 
-      {/* 관계 연결 섹션 */}
-      {(event.source || event.status) && (
-        <div className="border-t border-border px-5 py-3 shrink-0 space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Users size={14} className="shrink-0" />
-              <span className="text-xs font-medium">함께한 사람</span>
-            </div>
-            <button
-              onClick={() => setShowRelationPicker(!showRelationPicker)}
-              className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
-            >
-              + 추가
-            </button>
-          </div>
-
-          {/* 연결된 관계 태그 */}
-          {linkedRelations.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {linkedRelations.map((r) => (
-                <span
-                  key={r.id}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-pink-100 text-pink-700 font-medium"
-                >
-                  {r.name}
-                  <button
-                    onClick={() => removeRelation(r.id)}
-                    className="hover:text-pink-900 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* 관계 검색/선택 드롭다운 */}
-          {showRelationPicker && (
-            <div className="border border-border rounded-md bg-background shadow-sm">
-              <input
-                type="text"
-                value={relationSearch}
-                onChange={(e) => setRelationSearch(e.target.value)}
-                placeholder="이름으로 검색..."
-                className="w-full px-3 py-2 text-sm border-b border-border bg-transparent outline-none"
-                
-              />
-              <div className="max-h-32 overflow-y-auto">
-                {availableRelations.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    {allRelations.length === 0 ? "등록된 관계가 없습니다" : "검색 결과 없음"}
-                  </div>
-                ) : (
-                  availableRelations.map((r) => (
-                    <button
-                      key={r.id}
-                      onClick={() => addRelation(r.id)}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
-                    >
-                      {r.name}
-                      {r.relationType && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">({r.relationType})</span>
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 완료 토글 체크박스 */}
-      <div className="border-t border-border px-5 py-3 shrink-0">
-        <div className="flex items-center gap-2">
+        {/* 완료 토글 체크박스 */}
+        <div className="flex items-center gap-2 pt-1">
           <button
             onClick={async () => {
               const newStatus = taskStatus === "done" ? "todo" : "done";
@@ -824,6 +750,75 @@ function EventDetailContent({
           </button>
           <span className="text-sm">완료</span>
         </div>
+
+        {/* 관계 연결 섹션 */}
+        {(event.source || event.status) && (
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Users size={14} className="shrink-0" />
+                <span className="text-xs font-medium">함께한 사람</span>
+              </div>
+              <button
+                onClick={() => setShowRelationPicker(!showRelationPicker)}
+                className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+              >
+                + 추가
+              </button>
+            </div>
+
+            {linkedRelations.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {linkedRelations.map((r) => (
+                  <span
+                    key={r.id}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-pink-100 text-pink-700 font-medium"
+                  >
+                    {r.name}
+                    <button
+                      onClick={() => removeRelation(r.id)}
+                      className="hover:text-pink-900 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {showRelationPicker && (
+              <div className="border border-border rounded-md bg-background shadow-sm">
+                <input
+                  type="text"
+                  value={relationSearch}
+                  onChange={(e) => setRelationSearch(e.target.value)}
+                  placeholder="이름으로 검색..."
+                  className="w-full px-3 py-2 text-sm border-b border-border bg-transparent outline-none"
+                />
+                <div className="max-h-32 overflow-y-auto">
+                  {availableRelations.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">
+                      {allRelations.length === 0 ? "등록된 관계가 없습니다" : "검색 결과 없음"}
+                    </div>
+                  ) : (
+                    availableRelations.map((r) => (
+                      <button
+                        key={r.id}
+                        onClick={() => addRelation(r.id)}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                      >
+                        {r.name}
+                        {r.relationType && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">({r.relationType})</span>
+                        )}
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 액션 버튼 */}
