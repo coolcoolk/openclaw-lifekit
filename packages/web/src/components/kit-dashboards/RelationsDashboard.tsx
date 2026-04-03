@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { api, type Relation, type Task } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Plus, Users, Cake, CalendarDays, ArrowLeft, MapPin, Calendar, CheckCircle2, Circle, Brain, User, Save, Loader2 } from "lucide-react";
@@ -427,8 +427,15 @@ function RelationsListView({
   onBack: () => void;
   onSelectRelation: (id: string) => void;
 }) {
+  const { t } = useLanguage();
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [displayCount, setDisplayCount] = useState(10);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("");
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.getRelations()
@@ -436,6 +443,39 @@ function RelationsListView({
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const isSearching = search.trim().length > 0;
+
+  const filteredRelations = useMemo(() => {
+    if (!isSearching) return relations;
+    const q = search.trim().toLowerCase();
+    return relations.filter((r) => {
+      const name = (r.name || "").toLowerCase();
+      const nickname = (r.nickname || "").toLowerCase();
+      return name.includes(q) || nickname.includes(q);
+    });
+  }, [relations, search, isSearching]);
+
+  const displayedRelations = isSearching
+    ? filteredRelations
+    : filteredRelations.slice(0, displayCount);
+
+  const hasMore = !isSearching && displayCount < relations.length;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !isSearching) {
+        setDisplayCount((prev) => Math.min(prev + 10, relations.length));
+      }
+    });
+    if (sentinelRef.current) observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [relations.length, isSearching]);
+
+  // Reset display count when search changes
+  useEffect(() => {
+    if (!isSearching) setDisplayCount(10);
+  }, [isSearching]);
 
   if (loading) {
     return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
@@ -451,13 +491,52 @@ function RelationsListView({
         돌아가기
       </button>
 
-      <h3 className="text-sm font-semibold">👥 관계 리스트</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">👥 관계 리스트</h3>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+        >
+          <Plus size={12} />
+          인물 추가
+        </button>
+      </div>
 
-      {relations.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-4">등록된 인물이 없어요</p>
+      {showAddForm && (
+        <AddForm
+          newName={newName}
+          setNewName={setNewName}
+          newType={newType}
+          setNewType={setNewType}
+          onAdd={async () => {
+            if (!newName.trim()) return;
+            await api.createRelation({ name: newName.trim(), relationType: newType || undefined });
+            const updated = await api.getRelations();
+            setRelations(updated);
+            setShowAddForm(false);
+            setNewName("");
+            setNewType("");
+          }}
+          onCancel={() => { setShowAddForm(false); setNewName(""); }}
+          t={t}
+        />
+      )}
+
+      <input
+        type="text"
+        placeholder="검색..."
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background mb-3 focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+
+      {displayedRelations.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          {isSearching ? "검색 결과가 없어요" : "등록된 인물이 없어요"}
+        </p>
       ) : (
         <div className="space-y-2">
-          {relations.map((r) => (
+          {displayedRelations.map((r) => (
             <div
               key={r.id}
               onClick={() => onSelectRelation(r.id)}
@@ -487,6 +566,9 @@ function RelationsListView({
               </div>
             </div>
           ))}
+          {hasMore && (
+            <div ref={sentinelRef} className="text-xs text-muted-foreground text-center py-2">...</div>
+          )}
         </div>
       )}
     </div>
@@ -503,6 +585,10 @@ function AppointmentsListView({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [allRelations, setAllRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [displayCount, setDisplayCount] = useState(10);
+  const [showAddAppt, setShowAddAppt] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     Promise.all([
@@ -519,6 +605,46 @@ function AppointmentsListView({
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const isSearching = search.trim().length > 0;
+
+  const filteredTasks = useMemo(() => {
+    if (!isSearching) return tasks;
+    const q = search.trim().toLowerCase();
+    return tasks.filter((t) => {
+      // 약속 이름(title)으로 검색
+      if ((t.title || "").toLowerCase().includes(q)) return true;
+      // 구성원 이름으로 검색
+      const relationIds: string[] = t.relationIds ? JSON.parse(t.relationIds) : [];
+      const relatedPeople = allRelations.filter((r) => relationIds.includes(r.id));
+      return relatedPeople.some((r) => {
+        const name = (r.name || "").toLowerCase();
+        const nickname = (r.nickname || "").toLowerCase();
+        return name.includes(q) || nickname.includes(q);
+      });
+    });
+  }, [tasks, allRelations, search, isSearching]);
+
+  const displayedTasks = isSearching
+    ? filteredTasks
+    : filteredTasks.slice(0, displayCount);
+
+  const hasMore = !isSearching && displayCount < tasks.length;
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting && !isSearching) {
+        setDisplayCount((prev) => Math.min(prev + 10, tasks.length));
+      }
+    });
+    if (sentinelRef.current) observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [tasks.length, isSearching]);
+
+  // Reset display count when search changes
+  useEffect(() => {
+    if (!isSearching) setDisplayCount(10);
+  }, [isSearching]);
 
   if (loading) {
     return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
@@ -550,13 +676,47 @@ function AppointmentsListView({
         돌아가기
       </button>
 
-      <h3 className="text-sm font-semibold">📅 약속 리스트</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">📅 약속 리스트</h3>
+        <button
+          onClick={() => setShowAddAppt(true)}
+          className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+        >
+          <Plus size={12} />
+          약속 추가
+        </button>
+      </div>
 
-      {tasks.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-4">약속이 없어요</p>
+      {showAddAppt && (
+        <AddAppointmentForm
+          onCancel={() => setShowAddAppt(false)}
+          onAdd={async (data) => {
+            await api.createTask(data);
+            const allTasks = await api.getTasks({ view: "calendar" });
+            const appointments = allTasks
+              .filter((t) => t.relationIds || t.source === "notion_migration")
+              .sort((a, b) => (b.startAt || "").localeCompare(a.startAt || ""));
+            setTasks(appointments);
+            setShowAddAppt(false);
+          }}
+        />
+      )}
+
+      <input
+        type="text"
+        placeholder="검색... (약속명, 구성원)"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background mb-3 focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+
+      {displayedTasks.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">
+          {isSearching ? "검색 결과가 없어요" : "약속이 없어요"}
+        </p>
       ) : (
         <div className="space-y-2">
-          {tasks.map((t) => {
+          {displayedTasks.map((t) => {
             const { bg, badge } = getCardStyle(t);
             const relationIds: string[] = t.relationIds ? JSON.parse(t.relationIds) : [];
             const relatedPeople = allRelations.filter((r) => relationIds.includes(r.id));
@@ -612,6 +772,9 @@ function AppointmentsListView({
               </div>
             );
           })}
+          {hasMore && (
+            <div ref={sentinelRef} className="text-xs text-muted-foreground text-center py-2">...</div>
+          )}
         </div>
       )}
     </div>
@@ -1025,28 +1188,7 @@ export function RelationsDashboard() {
         })()}
       </section>
 
-      {/* CTA */}
-      <div className="pt-2">
-        {!showAddForm ? (
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="w-full flex items-center justify-center gap-1.5 text-xs px-4 py-2.5 rounded-lg border border-dashed border-border text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
-          >
-            <Plus size={14} />
-            인물 추가
-          </button>
-        ) : (
-          <AddForm
-            newName={newName}
-            setNewName={setNewName}
-            newType={newType}
-            setNewType={setNewType}
-            onAdd={handleAdd}
-            onCancel={() => { setShowAddForm(false); setNewName(""); }}
-            t={t}
-          />
-        )}
-      </div>
+
     </div>
   );
 }
@@ -1105,6 +1247,85 @@ function AddForm({
           className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
         >
           {t("common.add")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AddAppointmentForm({
+  onCancel,
+  onAdd,
+}: {
+  onCancel: () => void;
+  onAdd: (data: Partial<Task> & Record<string, any>) => Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [location, setLocation] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit() {
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      const startAt = date ? `${date}T${time || "00:00"}:00` : undefined;
+      await onAdd({
+        title: title.trim(),
+        start_at: startAt,
+        location: location.trim() || undefined,
+        status: "todo",
+        source: "manual",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border border-border rounded-lg p-3 space-y-2 bg-muted/20">
+      <input
+        type="text"
+        placeholder="약속 이름 *"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+      <div className="flex gap-2">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => setTime(e.target.value)}
+          className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+      </div>
+      <input
+        type="text"
+        placeholder="장소 (선택)"
+        value={location}
+        onChange={(e) => setLocation(e.target.value)}
+        className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={handleSubmit}
+          disabled={saving || !title.trim()}
+          className="flex-1 py-2 text-sm bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
+        >
+          {saving ? "저장 중..." : "추가"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 py-2 text-sm border border-border rounded-lg text-muted-foreground hover:text-foreground"
+        >
+          취소
         </button>
       </div>
     </div>
