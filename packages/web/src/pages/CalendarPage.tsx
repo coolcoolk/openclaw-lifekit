@@ -545,6 +545,7 @@ function EventDetailContent({
   onDuplicate: (event: Task) => void;
   onUpdate: (id: string, data: Record<string, any>) => Promise<void>;
 }) {
+  const [taskStatus, setTaskStatus] = useState(event.status);
   const [title, setTitle] = useState(event.title);
   const [startAt, setStartAt] = useState(event.startAt ? toDatetimeLocal(event.startAt) : "");
   const [endAt, setEndAt] = useState(event.endAt ? toDatetimeLocal(event.endAt) : "");
@@ -694,6 +695,24 @@ function EventDetailContent({
             className={`${inputClass} resize-none`}
           />
         </div>
+      </div>
+
+      {/* 완료 토글 버튼 */}
+      <div className="border-t border-border px-5 py-3 shrink-0">
+        <button
+          onClick={async () => {
+            const newStatus = taskStatus === "done" ? "todo" : "done";
+            await onUpdate(event.id, { status: newStatus });
+            setTaskStatus(newStatus);
+          }}
+          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg transition-colors ${
+            taskStatus === "done"
+              ? "bg-muted text-muted-foreground hover:bg-muted/80"
+              : "bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
+          }`}
+        >
+          {taskStatus === "done" ? "↩️ 미완료로 되돌리기" : "✅ 완료"}
+        </button>
       </div>
 
       {/* 액션 버튼 */}
@@ -1436,7 +1455,7 @@ export function CalendarPage() {
     const color = eventColor(e);
     const isPendingDelete = e.id === pendingDeleteId;
     const classNames = [
-      ...(e.status === "done" ? ["opacity-50", "line-through-event"] : []),
+      ...(e.status === "done" ? ["opacity-50"] : []),
       ...(isPendingDelete ? ["opacity-30", "pointer-events-none"] : []),
     ];
     return {
@@ -1621,7 +1640,7 @@ export function CalendarPage() {
                       style={{ backgroundColor: arg.event.backgroundColor || "#6b7280" }}
                     />
                     <span
-                      className={`truncate text-[11px] leading-tight ${isDone ? "line-through opacity-60" : ""}`}
+                      className={`truncate text-[11px] leading-tight ${isDone ? "opacity-60" : ""}`}
                       style={{ color: "inherit" }}
                     >
                       {arg.event.title}
@@ -1637,7 +1656,7 @@ export function CalendarPage() {
                     className={`w-full h-full overflow-hidden px-0.5 py-px ${isDone ? "opacity-60" : ""}`}
                     style={{ lineHeight: 1.2 }}
                   >
-                    <span className={`text-[9px] font-medium break-words ${isDone ? "line-through" : ""}`}
+                    <span className={`text-[9px] font-medium break-words ${isDone ? "" : ""}`}
                       style={{ display: "block", wordBreak: "break-all" }}
                     >
                       {arg.event.title}
@@ -1665,7 +1684,7 @@ export function CalendarPage() {
                   >
                     {isDone && <span style={{ fontSize: 8, color: arg.event.backgroundColor }}>✓</span>}
                   </button>
-                  <span className={`truncate text-xs ${isDone ? "line-through opacity-70" : ""}`}>
+                  <span className={`truncate text-xs ${isDone ? "opacity-70" : ""}`}>
                     {arg.event.title}
                   </span>
                 </div>

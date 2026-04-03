@@ -535,7 +535,7 @@ function DetailedTaskRow({
           />
         ) : (
           <>
-            <span className={cn("text-sm font-medium truncate", isDone && "line-through text-muted-foreground")}>
+            <span className={cn("text-sm font-medium truncate", isDone && "text-muted-foreground")}>
               {task.title}
             </span>
             {task.isRoutine && (

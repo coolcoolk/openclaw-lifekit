@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { api, type Relation } from "@/lib/api";
+import { api, type Relation, type Task } from "@/lib/api";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { Plus, Users, Cake, CalendarDays } from "lucide-react";
+import { Plus, Users, Cake, CalendarDays, ArrowLeft, MapPin, Calendar } from "lucide-react";
+
+type ViewMode = "dashboard" | "relations" | "appointments";
 
 function daysSince(dateStr: string | null): number | null {
   if (!dateStr) return null;
@@ -15,14 +17,144 @@ function isBirthdayThisMonth(birthday: string | null): boolean {
   if (!birthday) return false;
   const now = new Date();
   const month = now.getMonth() + 1;
-  // birthday format: YYYY-MM-DD or MM-DD
   const parts = birthday.split("-");
   const bMonth = parseInt(parts.length >= 2 ? parts[parts.length - 2] : "0");
   return bMonth === month;
 }
 
+function RelationsListView({ onBack }: { onBack: () => void }) {
+  const [relations, setRelations] = useState<Relation[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getRelations()
+      .then(setRelations)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={14} />
+        돌아가기
+      </button>
+
+      <h3 className="text-sm font-semibold">👥 관계 리스트</h3>
+
+      {relations.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">등록된 인물이 없어요</p>
+      ) : (
+        <div className="space-y-2">
+          {relations.map((r) => (
+            <div key={r.id} className="border border-border rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{r.nickname || r.name}</span>
+                {r.relationType && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    {r.relationType}
+                  </span>
+                )}
+              </div>
+              <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
+                {r.birthday && (
+                  <span className="flex items-center gap-1">
+                    <Cake size={10} />
+                    {r.birthday}
+                  </span>
+                )}
+                {r.lastMetAt && (
+                  <span className="flex items-center gap-1">
+                    <CalendarDays size={10} />
+                    마지막 만남: {r.lastMetAt.slice(0, 10)}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AppointmentsListView({ onBack }: { onBack: () => void }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.getTasks({ view: "calendar" })
+      .then((allTasks) => {
+        // Filter tasks that have relations or are appointment-like
+        const appointments = allTasks.filter(
+          (t) => t.relationIds || t.source === "notion_migration"
+        );
+        setTasks(appointments);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ArrowLeft size={14} />
+        돌아가기
+      </button>
+
+      <h3 className="text-sm font-semibold">📅 약속 리스트</h3>
+
+      {tasks.length === 0 ? (
+        <p className="text-xs text-muted-foreground text-center py-4">약속이 없어요</p>
+      ) : (
+        <div className="space-y-2">
+          {tasks.map((t) => (
+            <div key={t.id} className="border border-border rounded-lg px-3 py-2.5">
+              <div className="text-sm font-medium">{t.title}</div>
+              <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
+                {t.startAt && (
+                  <span className="flex items-center gap-1">
+                    <Calendar size={10} />
+                    {new Date(t.startAt).toLocaleDateString("ko-KR", {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+                {t.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin size={10} />
+                    {t.location}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function RelationsDashboard() {
   const { t } = useLanguage();
+  const [view, setView] = useState<ViewMode>("dashboard");
   const [relations, setRelations] = useState<Relation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -51,6 +183,14 @@ export function RelationsDashboard() {
     }
   }
 
+  // Subpage views
+  if (view === "relations") {
+    return <RelationsListView onBack={() => setView("dashboard")} />;
+  }
+  if (view === "appointments") {
+    return <AppointmentsListView onBack={() => setView("dashboard")} />;
+  }
+
   if (loading) {
     return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
   }
@@ -58,31 +198,49 @@ export function RelationsDashboard() {
   // 빈 상태
   if (relations.length === 0) {
     return (
-      <div className="border border-dashed border-border rounded-lg p-6 text-center space-y-3">
-        <div className="text-3xl">👥</div>
-        <p className="text-sm text-muted-foreground">아직 등록된 인물이 없어요</p>
-        <p className="text-xs text-muted-foreground">
-          아그에게 "친구 홍길동 등록해줘" 라고 말해보세요
-        </p>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-        >
-          <Plus size={14} />
-          직접 추가
-        </button>
+      <div className="space-y-4">
+        {/* 서브페이지 버튼 */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setView("relations")}
+            className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            👥 관계 리스트
+          </button>
+          <button
+            onClick={() => setView("appointments")}
+            className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors"
+          >
+            📅 약속 리스트
+          </button>
+        </div>
 
-        {showAddForm && (
-          <AddForm
-            newName={newName}
-            setNewName={setNewName}
-            newType={newType}
-            setNewType={setNewType}
-            onAdd={handleAdd}
-            onCancel={() => { setShowAddForm(false); setNewName(""); }}
-            t={t}
-          />
-        )}
+        <div className="border border-dashed border-border rounded-lg p-6 text-center space-y-3">
+          <div className="text-3xl">👥</div>
+          <p className="text-sm text-muted-foreground">아직 등록된 인물이 없어요</p>
+          <p className="text-xs text-muted-foreground">
+            아그에게 "친구 홍길동 등록해줘" 라고 말해보세요
+          </p>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="inline-flex items-center gap-1.5 text-xs px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+          >
+            <Plus size={14} />
+            직접 추가
+          </button>
+
+          {showAddForm && (
+            <AddForm
+              newName={newName}
+              setNewName={setNewName}
+              newType={newType}
+              setNewType={setNewType}
+              onAdd={handleAdd}
+              onCancel={() => { setShowAddForm(false); setNewName(""); }}
+              t={t}
+            />
+          )}
+        </div>
       </div>
     );
   }
@@ -111,6 +269,22 @@ export function RelationsDashboard() {
 
   return (
     <div className="space-y-4">
+      {/* 서브페이지 버튼 */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setView("relations")}
+          className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors"
+        >
+          👥 관계 리스트
+        </button>
+        <button
+          onClick={() => setView("appointments")}
+          className="flex-1 py-2 text-sm border border-border rounded-lg hover:bg-muted/50 transition-colors"
+        >
+          📅 약속 리스트
+        </button>
+      </div>
+
       {/* 연락 필요한 사람 */}
       <section>
         <div className="flex items-center gap-2 mb-2">

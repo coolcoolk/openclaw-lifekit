@@ -1000,7 +1000,7 @@ function TaskRow({
             className="w-full text-sm bg-background border border-border rounded px-1.5 py-0.5 focus:outline-none focus:ring-1 focus:ring-primary/30"
           />
         ) : (
-          <span className={cn("text-sm truncate block", isDone && "line-through text-muted-foreground")}>
+          <span className={cn("text-sm truncate block", isDone && "text-muted-foreground")}>
             {task.title}
           </span>
         )}
