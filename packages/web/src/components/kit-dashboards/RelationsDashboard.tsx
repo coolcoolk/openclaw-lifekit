@@ -796,9 +796,14 @@ export function RelationsDashboard() {
 
   const birthdayThisMonth = relations.filter((r) => isBirthdayThisMonth(r.birthday));
 
-  const recentMet = relations
-    .filter((r) => r.lastMetAt)
-    .sort((a, b) => (b.lastMetAt || "").localeCompare(a.lastMetAt || ""))
+  const recentUnreviewed = dashboardTasks
+    .filter((t) => t.status === "done" && t.startAt && new Date(t.startAt) <= new Date())
+    .filter((t) => {
+      const desc = t.description || "";
+      const stripped = desc.replace(/목적:\s*[^\n]*/g, "").trim();
+      return !stripped;
+    })
+    .sort((a, b) => (b.startAt || "").localeCompare(a.startAt || ""))
     .slice(0, 5);
 
   return (
@@ -914,33 +919,35 @@ export function RelationsDashboard() {
             전체 보기 →
           </button>
         </div>
-        {recentMet.length === 0 ? (
+        {recentUnreviewed.length === 0 ? (
           <div className="border border-border rounded-lg p-3 text-center">
-            <p className="text-xs text-muted-foreground">만남 기록이 없어요</p>
+            <p className="text-xs text-muted-foreground">리뷰 없는 만남이 없어요 🎉</p>
           </div>
         ) : (
           <div className="space-y-1.5">
-            {recentMet.map((r) => (
-              <div
-                key={r.id}
-                onClick={() => {
-                  setSelectedRelationId(r.id);
-                  setSelectedTask(null);
-                  setView("relation-detail");
-                }}
-                className="border border-border rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-muted/30 transition-colors"
-              >
-                <div>
-                  <span className="text-xs font-medium">{r.nickname || r.name}</span>
-                  <span className="text-[10px] text-muted-foreground ml-2">
-                    {r.relationType ? t(`relations.${r.relationType}`) : ""}
-                  </span>
+            {recentUnreviewed.map((t) => {
+              const d = t.startAt ? new Date(t.startAt) : null;
+              const isThisYear = d && d.getFullYear() === new Date().getFullYear();
+              const dateStr = d ? d.toLocaleDateString("ko-KR", {
+                ...(isThisYear ? {} : { year: "numeric" }),
+                month: "short",
+                day: "numeric",
+              }) : "";
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => {
+                    setSelectedTask(t);
+                    setPreviousView("dashboard");
+                    setView("appointment-detail");
+                  }}
+                  className="border border-yellow-200 bg-yellow-50 rounded-lg px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-yellow-100 transition-colors"
+                >
+                  <span className="text-xs font-medium truncate">{t.title}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 ml-2">{dateStr}</span>
                 </div>
-                <div className="text-[10px] text-muted-foreground">
-                  {r.lastMetAt?.slice(0, 10)} · {r.meetingCount}{t("relations.times")}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
