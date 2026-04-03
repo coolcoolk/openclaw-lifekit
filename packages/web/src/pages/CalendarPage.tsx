@@ -1227,6 +1227,7 @@ export function CalendarPage() {
   const calendarContainerRef = useRef<HTMLDivElement>(null);
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null);
   const [nowLineTop, setNowLineTop] = useState<number | null>(null);
+  const [nowLineX, setNowLineX] = useState<{ left: number; right: number } | null>(null);
   const isMobile = useIsMobile();
   const { t, language } = useLanguage();
   const [currentView, setCurrentView] = useState<string>("timeGridWeek");
@@ -1474,6 +1475,18 @@ export function CalendarPage() {
       const top = gridRect.top - containerRect.top + gridRect.height * percent;
 
       setNowLineTop(top);
+
+      // 오늘 컬럼 x 범위 계산
+      const todayStr = now.toISOString().slice(0, 10);
+      const todayCol = container.querySelector(`[data-date="${todayStr}"]`) as HTMLElement | null;
+      if (todayCol) {
+        const colRect = todayCol.getBoundingClientRect();
+        const left = colRect.left - containerRect.left;
+        const right = containerRect.right - colRect.right;
+        setNowLineX({ left, right });
+      } else {
+        setNowLineX(null);
+      }
     };
 
     updateNowLine();
@@ -1677,29 +1690,25 @@ export function CalendarPage() {
           <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
             {/* 현재 시간 빨간줄 오버레이 */}
             {nowLineTop !== null && (
-              <div
-                style={{
+              <div style={{ position: "absolute", top: nowLineTop, left: 0, right: 0, zIndex: 10, pointerEvents: "none", height: 2 }}>
+                {/* 왼쪽 얇은 선 (오늘 이전 영역) */}
+                {nowLineX && (
+                  <div style={{ position: "absolute", left: 0, width: nowLineX.left, height: 1, top: 0.5, backgroundColor: "#ef4444", opacity: 0.5 }} />
+                )}
+                {/* 오늘 컬럼 굵은 선 */}
+                <div style={{
                   position: "absolute",
-                  top: nowLineTop,
-                  left: 0,
-                  right: 0,
+                  left: nowLineX ? nowLineX.left : 0,
+                  right: nowLineX ? nowLineX.right : 0,
                   height: 2,
                   backgroundColor: "#ef4444",
-                  zIndex: 10,
-                  pointerEvents: "none",
-                }}
-              >
-                <div
-                  style={{
-                    position: "absolute",
-                    left: -4,
-                    top: -4,
-                    width: 10,
-                    height: 10,
-                    borderRadius: "50%",
-                    backgroundColor: "#ef4444",
-                  }}
-                />
+                }}>
+                  <div style={{ position: "absolute", left: -4, top: -4, width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ef4444" }} />
+                </div>
+                {/* 오른쪽 얇은 선 (오늘 이후 영역) */}
+                {nowLineX && (
+                  <div style={{ position: "absolute", right: 0, width: nowLineX.right, height: 1, top: 0.5, backgroundColor: "#ef4444", opacity: 0.5 }} />
+                )}
               </div>
             )}
             <FullCalendar
