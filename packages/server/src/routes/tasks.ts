@@ -47,6 +47,32 @@ taskRoutes.get("/", (c) => {
   const start = c.req.query("start"); // 캘린더 뷰 시작 범위
   const end = c.req.query("end"); // 캘린더 뷰 끝 범위
   const relationId = c.req.query("relation_id"); // 특정 관계의 약속 조회
+  const isRoutine = c.req.query("is_routine"); // 루틴 태스크 필터
+
+  // is_routine 필터: 루틴 태스크만 조회
+  if (isRoutine === "true") {
+    const rows = sqlite.query<any, []>(`
+      SELECT
+        t.id, t.project_id AS projectId, t.area_id AS areaId,
+        t.title, t.description, t.status, t.priority,
+        t.due_date AS dueDate, t.completed_at AS completedAt,
+        t.is_routine AS isRoutine, t.routine_rule AS routineRule, t.tags, t.sort_order AS sortOrder,
+        t.estimated_minutes AS estimatedMinutes,
+        t.start_at AS startAt, t.end_at AS endAt,
+        t.all_day AS allDay, t.location, t.source,
+        t.external_id AS externalId, t.color,
+        t.linked_domain_id AS linkedDomainId,
+        t.relation_ids AS relationIds,
+        p.name AS projectName,
+        COALESCE(t.linked_domain_id, a.domain_id) AS domainId
+      FROM tasks t
+      LEFT JOIN projects p ON t.project_id = p.id
+      LEFT JOIN areas a ON t.area_id = a.id
+      WHERE t.is_routine = 1
+      ORDER BY t.sort_order
+    `).all();
+    return c.json(rows);
+  }
 
   // relation_id 필터: relation_ids JSON array에 해당 id가 포함된 태스크
   if (relationId) {
@@ -55,7 +81,7 @@ taskRoutes.get("/", (c) => {
         t.id, t.project_id AS projectId, t.area_id AS areaId,
         t.title, t.description, t.status, t.priority,
         t.due_date AS dueDate, t.completed_at AS completedAt,
-        t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
+        t.is_routine AS isRoutine, t.routine_rule AS routineRule, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
         t.all_day AS allDay, t.location, t.source,
@@ -94,7 +120,7 @@ taskRoutes.get("/", (c) => {
         t.id, t.project_id AS projectId, t.area_id AS areaId,
         t.title, t.description, t.status, t.priority,
         t.due_date AS dueDate, t.completed_at AS completedAt,
-        t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
+        t.is_routine AS isRoutine, t.routine_rule AS routineRule, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
         t.all_day AS allDay, t.location, t.source,
@@ -134,7 +160,7 @@ taskRoutes.get("/", (c) => {
         t.id, t.project_id AS projectId, t.area_id AS areaId,
         t.title, t.description, t.status, t.priority,
         t.due_date AS dueDate, t.completed_at AS completedAt,
-        t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
+        t.is_routine AS isRoutine, t.routine_rule AS routineRule, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
         t.relation_ids AS relationIds,
@@ -183,7 +209,7 @@ taskRoutes.get("/", (c) => {
         t.id, t.project_id AS projectId, t.area_id AS areaId,
         t.title, t.description, t.status, t.priority,
         t.due_date AS dueDate, t.completed_at AS completedAt,
-        t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
+        t.is_routine AS isRoutine, t.routine_rule AS routineRule, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
         t.relation_ids AS relationIds,

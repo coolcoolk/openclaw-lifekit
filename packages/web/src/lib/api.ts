@@ -64,6 +64,7 @@ export interface Task {
   dueDate: string | null;
   completedAt: string | null;
   isRoutine: boolean;
+  routineRule: string | null;
   tags: string | null;
   estimatedMinutes: number | null;
   sortOrder: number;
@@ -223,7 +224,7 @@ export const api = {
     fetchJSON<void>(`/projects/${id}`, { method: "DELETE" }),
 
   // Tasks (통합: backlog + calendar)
-  getTasks: (params?: { project_id?: string; area_id?: string; status?: string; before?: string; view?: string; start?: string; end?: string }) => {
+  getTasks: (params?: { project_id?: string; area_id?: string; status?: string; before?: string; view?: string; start?: string; end?: string; is_routine?: string }) => {
     const query = new URLSearchParams(params as Record<string, string>).toString();
     return fetchJSON<Task[]>(`/tasks${query ? `?${query}` : ""}`);
   },
