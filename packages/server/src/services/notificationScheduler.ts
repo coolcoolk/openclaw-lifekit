@@ -318,7 +318,7 @@ ${pendingTasks.map((t: any) => `- ${t.title} (${t.domainName || "미분류"})`).
 
 ${kitSummary ? `## 건강/활동 기록${kitSummary}` : ""}
 
-짧고 따뜻한 하루 회고를 작성해주세요.`;
+짧고 따뜻한 하루 회고를 작성해주세요. ${kitSummary ? "건강 기록도 포함해서 오늘의 건강 상태 피드백을 짧게 넣어주세요." : ""}`;
 
   const reviewContent = await generateAndSendMessage(
     prompt,
@@ -582,11 +582,8 @@ export function startNotificationScheduler(): void {
         );
       }
 
-      // 2. 식단·운동 브리핑 + 일일 회고: reviewTime에 실행
+      // 2. 일일 회고 (건강 데이터 포함): reviewTime에 실행
       if (currentTime === settings.reviewTime) {
-        sendDailyBriefing().catch((err) =>
-          console.error("[scheduler] Briefing failed:", err.message)
-        );
         generateDailyReview().catch((err) =>
           console.error("[scheduler] Daily review failed:", err.message)
         );
