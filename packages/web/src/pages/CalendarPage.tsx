@@ -7,6 +7,7 @@ import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import type { EventClickArg, DateSelectArg, DatesSetArg } from "@fullcalendar/core";
 import koLocale from "@fullcalendar/core/locales/ko";
 import { api, type Task, type Domain, type Relation } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { DOMAIN_COLORS } from "@/lib/domainColors";
@@ -553,6 +554,40 @@ function EventDetailContent({
   const [description, setDescription] = useState(event.description || "");
   const [linkedDomainId, setLinkedDomainId] = useState(event.linkedDomainId || event.domainId || "");
 
+  // 관계 연결 상태
+  const [allRelations, setAllRelations] = useState<Relation[]>([]);
+  const [linkedRelationIds, setLinkedRelationIds] = useState<string[]>(() => {
+    if (event.relationIds) {
+      try { return JSON.parse(event.relationIds); } catch { return []; }
+    }
+    return [];
+  });
+  const [showRelationPicker, setShowRelationPicker] = useState(false);
+  const [relationSearch, setRelationSearch] = useState("");
+
+  useEffect(() => {
+    api.getRelations().then(setAllRelations).catch(() => {});
+  }, []);
+
+  const linkedRelations = allRelations.filter((r) => linkedRelationIds.includes(r.id));
+  const availableRelations = allRelations.filter(
+    (r) => !linkedRelationIds.includes(r.id) && r.name.toLowerCase().includes(relationSearch.toLowerCase())
+  );
+
+  const addRelation = async (relationId: string) => {
+    const newIds = [...linkedRelationIds, relationId];
+    setLinkedRelationIds(newIds);
+    setShowRelationPicker(false);
+    setRelationSearch("");
+    await onUpdate(event.id, { relation_ids: newIds });
+  };
+
+  const removeRelation = async (relationId: string) => {
+    const newIds = linkedRelationIds.filter((id) => id !== relationId);
+    setLinkedRelationIds(newIds);
+    await onUpdate(event.id, { relation_ids: newIds });
+  };
+
   const autoSave = useCallback(
     (field: string, value: string) => {
       const payload: Record<string, any> = {};
@@ -697,22 +732,98 @@ function EventDetailContent({
         </div>
       </div>
 
-      {/* 완료 토글 버튼 */}
+      {/* 관계 연결 섹션 */}
+      {(event.source || event.status) && (
+        <div className="border-t border-border px-5 py-3 shrink-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Users size={14} className="shrink-0" />
+              <span className="text-xs font-medium">함께한 사람</span>
+            </div>
+            <button
+              onClick={() => setShowRelationPicker(!showRelationPicker)}
+              className="text-xs text-primary hover:text-primary/80 transition-colors font-medium"
+            >
+              + 추가
+            </button>
+          </div>
+
+          {/* 연결된 관계 태그 */}
+          {linkedRelations.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {linkedRelations.map((r) => (
+                <span
+                  key={r.id}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-pink-100 text-pink-700 font-medium"
+                >
+                  {r.name}
+                  <button
+                    onClick={() => removeRelation(r.id)}
+                    className="hover:text-pink-900 transition-colors"
+                  >
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* 관계 검색/선택 드롭다운 */}
+          {showRelationPicker && (
+            <div className="border border-border rounded-md bg-background shadow-sm">
+              <input
+                type="text"
+                value={relationSearch}
+                onChange={(e) => setRelationSearch(e.target.value)}
+                placeholder="이름으로 검색..."
+                className="w-full px-3 py-2 text-sm border-b border-border bg-transparent outline-none"
+                autoFocus
+              />
+              <div className="max-h-32 overflow-y-auto">
+                {availableRelations.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-muted-foreground">
+                    {allRelations.length === 0 ? "등록된 관계가 없습니다" : "검색 결과 없음"}
+                  </div>
+                ) : (
+                  availableRelations.map((r) => (
+                    <button
+                      key={r.id}
+                      onClick={() => addRelation(r.id)}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-muted/60 transition-colors"
+                    >
+                      {r.name}
+                      {r.relationType && (
+                        <span className="ml-1.5 text-xs text-muted-foreground">({r.relationType})</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 완료 토글 체크박스 */}
       <div className="border-t border-border px-5 py-3 shrink-0">
-        <button
-          onClick={async () => {
-            const newStatus = taskStatus === "done" ? "todo" : "done";
-            await onUpdate(event.id, { status: newStatus });
-            setTaskStatus(newStatus);
-          }}
-          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm rounded-lg transition-colors ${
-            taskStatus === "done"
-              ? "bg-muted text-muted-foreground hover:bg-muted/80"
-              : "bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400"
-          }`}
-        >
-          {taskStatus === "done" ? "↩️ 미완료로 되돌리기" : "✅ 완료"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              const newStatus = taskStatus === "done" ? "todo" : "done";
+              await onUpdate(event.id, { status: newStatus });
+              setTaskStatus(newStatus);
+            }}
+            className={cn(
+              "w-5 h-5 rounded border shrink-0 flex items-center justify-center transition-colors",
+              taskStatus === "done"
+                ? "bg-primary border-primary text-primary-foreground"
+                : "border-border hover:border-primary/50"
+            )}
+          >
+            {taskStatus === "done" && <Check size={12} />}
+          </button>
+          <span className="text-sm">완료</span>
+        </div>
       </div>
 
       {/* 액션 버튼 */}

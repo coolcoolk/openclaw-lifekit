@@ -93,9 +93,9 @@ function AppointmentsListView({ onBack }: { onBack: () => void }) {
     api.getTasks({ view: "calendar" })
       .then((allTasks) => {
         // Filter tasks that have relations or are appointment-like
-        const appointments = allTasks.filter(
-          (t) => t.relationIds || t.source === "notion_migration"
-        );
+        const appointments = allTasks
+          .filter((t) => t.relationIds || t.source === "notion_migration")
+          .sort((a, b) => (b.startAt || "").localeCompare(a.startAt || ""));
         setTasks(appointments);
       })
       .catch(() => {})
@@ -126,17 +126,24 @@ function AppointmentsListView({ onBack }: { onBack: () => void }) {
             <div key={t.id} className="border border-border rounded-lg px-3 py-2.5">
               <div className="text-sm font-medium">{t.title}</div>
               <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground">
-                {t.startAt && (
-                  <span className="flex items-center gap-1">
-                    <Calendar size={10} />
-                    {new Date(t.startAt).toLocaleDateString("ko-KR", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
+                {t.startAt && (() => {
+                  const d = new Date(t.startAt);
+                  const thisYear = new Date().getFullYear();
+                  const isThisYear = d.getFullYear() === thisYear;
+                  const formatted = d.toLocaleDateString("ko-KR", {
+                    ...(isThisYear ? {} : { year: "numeric" }),
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
+                  return (
+                    <span className="flex items-center gap-1">
+                      <Calendar size={10} />
+                      {formatted}
+                    </span>
+                  );
+                })()}
                 {t.location && (
                   <span className="flex items-center gap-1">
                     <MapPin size={10} />
