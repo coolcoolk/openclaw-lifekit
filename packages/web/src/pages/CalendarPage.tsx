@@ -2202,7 +2202,7 @@ export function CalendarPage() {
         )}
       </div>
 
-      {/* 이벤트 상세 패널 */
+      {/* 이벤트 상세 패널 */}
       {selectedEvent && (
         <EventDetailPanel
           key={selectedEvent.id}
