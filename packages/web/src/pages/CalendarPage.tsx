@@ -18,6 +18,115 @@ import {
 } from "lucide-react";
 import { RoutineTaskModal } from "@/components/RoutineTaskModal";
 
+// ── 루틴 규칙 요약 헬퍼 ──
+function summarizeRoutineRule(rule: string | null): string {
+  if (!rule) return "";
+  try {
+    const r = JSON.parse(rule);
+    const dayNames = ["일","월","화","수","목","금","토"];
+    const days = (r.days || []).map((d: number) => dayNames[d]).join(", ");
+    return `매주 ${days} ${r.time || ""}`;
+  } catch { return rule || ""; }
+}
+
+// ── 루틴 관리 모달 (바텀시트) ──
+function RoutineManagerModal({ onClose }: { onClose: () => void }) {
+  const [routines, setRoutines] = useState<import("@/lib/api").Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const loadRoutines = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await api.getTasks({ is_routine: "true" });
+      setRoutines(data.filter((t) => t.isRoutine));
+    } catch {
+      setRoutines([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadRoutines(); }, [loadRoutines]);
+
+  const handleDelete = async (id: string) => {
+    await api.deleteTask(id);
+    setRoutines((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  return (
+    <>
+      {/* 배경 오버레이 */}
+      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      {/* 바텀시트 패널 */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: "80vh", paddingBottom: "env(safe-area-inset-bottom)", animation: "bottomSheetSlideUp 0.2s ease-out" }}>
+        {/* 드래그 핸들 */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+        {/* 헤더 */}
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="text-base font-semibold">루틴 관리</h2>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
+            <X size={18} />
+          </button>
+        </div>
+        {/* 콘텐츠 */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {/* 안내 */}
+          <div className="flex items-start gap-2 bg-amber-50 text-amber-800 rounded-lg px-3 py-2.5 text-xs">
+            <span className="shrink-0 mt-0.5">⚠️</span>
+            <span>매주 일요일 오전 0시에 다음 주 루틴 태스크가 자동으로 추가됩니다</span>
+          </div>
+          {/* 루틴 추가 버튼 */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm rounded-lg border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 transition-colors"
+          >
+            <Plus size={16} />
+            루틴 추가
+          </button>
+          {/* 루틴 목록 */}
+          {loading ? (
+            <div className="text-center text-xs text-muted-foreground py-6">로딩 중...</div>
+          ) : routines.length === 0 ? (
+            <div className="text-center text-xs text-muted-foreground py-6">등록된 루틴이 없습니다</div>
+          ) : (
+            <div className="space-y-1">
+              {routines.map((routine) => (
+                <div key={routine.id} className="flex items-center justify-between px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{routine.title}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {summarizeRoutineRule(routine.routineRule)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDelete(routine.id)}
+                    className="p-1.5 rounded-md hover:bg-red-100 text-muted-foreground hover:text-red-600 transition-colors shrink-0 ml-2"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {/* 루틴 생성 모달 */}
+      {showCreateModal && (
+        <RoutineTaskModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={() => {
+            setShowCreateModal(false);
+            loadRoutines();
+          }}
+        />
+      )}
+    </>
+  );
+}
+
 // ── 이벤트 색상 헬퍼 ──
 function eventColor(task: Task): string {
   const domainId = task.linkedDomainId || task.domainId;
@@ -530,6 +639,111 @@ function MobileBottomSheet({
   );
 }
 
+// ── 관계 상세 미니 패널 (바텀시트) ──
+function RelationMiniDetailSheet({
+  relation,
+  onClose,
+}: {
+  relation: Relation;
+  onClose: () => void;
+}) {
+  const memoData = (() => {
+    try { return JSON.parse(relation.memo || "{}"); } catch { return {}; }
+  })();
+
+  function daysSince(dateStr: string | null | undefined): number | null {
+    if (!dateStr) return null;
+    return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000);
+  }
+
+  const lastMetDays = daysSince(relation.lastMetAt);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-end" onClick={onClose}>
+      <div
+        className="w-full bg-background rounded-t-2xl p-5 space-y-3 max-h-[60vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        style={{ animation: "bottomSheetSlideUp 0.2s ease-out" }}
+      >
+        {/* 상단 핸들 */}
+        <div className="flex justify-center pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+
+        {/* 이름 + 관계유형 */}
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-base">{relation.name}</h3>
+          {relation.nickname && (
+            <span className="text-sm text-muted-foreground">({relation.nickname})</span>
+          )}
+          {relation.relationType && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+              {relation.relationType}
+            </span>
+          )}
+        </div>
+
+        {/* 정보들 */}
+        <div className="space-y-2 text-sm">
+          {relation.birthday && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">🎂</span>
+              <span>{relation.birthday}</span>
+            </div>
+          )}
+          {memoData["거주지"] && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">📍</span>
+              <span>{memoData["거주지"]}</span>
+            </div>
+          )}
+          {memoData["MBTI"] && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">🧠</span>
+              <span className="font-medium">{memoData["MBTI"]}</span>
+            </div>
+          )}
+          {memoData["groups"] && Array.isArray(memoData["groups"]) && memoData["groups"].length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">👥</span>
+              <div className="flex flex-wrap gap-1">
+                {memoData["groups"].map((g: string, i: number) => (
+                  <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {relation.lastMetAt && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">📅</span>
+              <span>
+                마지막 만남: {relation.lastMetAt.slice(0, 10)}
+                {lastMetDays !== null && (
+                  <span className="text-muted-foreground ml-1">({lastMetDays}일 전)</span>
+                )}
+              </span>
+            </div>
+          )}
+          {relation.intimacyScore != null && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">💛</span>
+              <span>친밀도: {relation.intimacyScore}</span>
+            </div>
+          )}
+          {relation.meetingCount > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">🤝</span>
+              <span>만남 횟수: {relation.meetingCount}회</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── 이벤트 상세 콘텐츠 (PC/모바일 공용) ──
 function EventDetailContent({
   event,
@@ -555,6 +769,7 @@ function EventDetailContent({
   const [linkedDomainId, setLinkedDomainId] = useState(event.linkedDomainId || event.domainId || "");
 
   // 관계 연결 상태
+  const [selectedRelationDetail, setSelectedRelationDetail] = useState<Relation | null>(null);
   const [allRelations, setAllRelations] = useState<Relation[]>([]);
   const [linkedRelationIds, setLinkedRelationIds] = useState<string[]>(() => {
     if (event.relationIds) {
@@ -694,7 +909,12 @@ function EventDetailContent({
               <div className="flex flex-wrap gap-1.5">
                 {linkedRelations.map((r) => (
                   <span key={r.id} className="inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full bg-pink-100 text-pink-700 font-medium">
-                    {r.name}
+                    <button
+                      onClick={() => setSelectedRelationDetail(r)}
+                      className="hover:underline"
+                    >
+                      {r.name}
+                    </button>
                     <button onClick={() => removeRelation(r.id)} className="hover:text-pink-900 transition-colors">
                       <X size={12} />
                     </button>
@@ -798,6 +1018,14 @@ function EventDetailContent({
         </div>
 
       </div>
+
+      {/* 관계 상세 미니 패널 */}
+      {selectedRelationDetail && (
+        <RelationMiniDetailSheet
+          relation={selectedRelationDetail}
+          onClose={() => setSelectedRelationDetail(null)}
+        />
+      )}
 
       {/* 액션 버튼 */}
       <div className="border-t border-border px-5 py-3 flex gap-2 shrink-0">
@@ -1208,7 +1436,8 @@ export function CalendarPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [hiddenDomains, setHiddenDomains] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showRoutineModal, setShowRoutineModal] = useState(false);
+  const [showRoutineManager, setShowRoutineManager] = useState(false);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   // ── 삭제 Undo 상태 ──
   const [pendingDelete, setPendingDelete] = useState<{ id: string; timer: ReturnType<typeof setTimeout> } | null>(null);
@@ -1218,9 +1447,10 @@ export function CalendarPage() {
   const [completingIds, setCompletingIds] = useState<Set<string>>(new Set());
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
 
-  // 도메인 목록 로드
+  // 도메인 목록 로드 + 구글 캘린더 연동 상태 확인
   useEffect(() => {
     api.getDomains().then(setDomains);
+    api.getSettings().then(s => setGoogleConnected(s.googleCalendar?.connected ?? false)).catch(() => {});
   }, []);
 
   // 사이드바 태스크 로드 (backlog: start_at 없는 미완료 태스크)
@@ -1610,20 +1840,21 @@ export function CalendarPage() {
               </button>
             ))}
           </div>
+          {googleConnected && (
+            <button
+              onClick={handleSync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors min-h-[44px] disabled:opacity-50"
+              title={t("calendar.syncGoogle")}
+            >
+              <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
+            </button>
+          )}
           <button
-            onClick={handleSync}
-            disabled={syncing}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-border hover:bg-muted transition-colors min-h-[44px] disabled:opacity-50"
-            title={t("calendar.syncGoogle")}
-          >
-            <RefreshCw size={16} className={syncing ? "animate-spin" : ""} />
-          </button>
-          <button
-            onClick={() => setShowRoutineModal(true)}
+            onClick={() => setShowRoutineManager(true)}
             className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-purple-300 text-purple-600 hover:bg-purple-50 transition-colors min-h-[44px]"
           >
-            <RefreshCw size={16} />
-            <span className="hidden md:inline">{language === "ko" ? "루틴" : "Routine"}</span>
+            {language === "ko" ? "루틴" : "Routine"}
           </button>
           <button
             onClick={() => {
@@ -1861,11 +2092,11 @@ export function CalendarPage() {
         </button>
       </div>
 
-      {/* 루틴 모달 */}
-      {showRoutineModal && (
-        <RoutineTaskModal
-          onClose={() => setShowRoutineModal(false)}
-          onCreated={() => {
+      {/* 루틴 관리 모달 */}
+      {showRoutineManager && (
+        <RoutineManagerModal
+          onClose={() => {
+            setShowRoutineManager(false);
             if (dateRangeRef.current) {
               loadEvents(dateRangeRef.current.start, dateRangeRef.current.end);
             }
