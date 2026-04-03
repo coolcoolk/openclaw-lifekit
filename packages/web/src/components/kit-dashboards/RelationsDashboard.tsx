@@ -57,7 +57,7 @@ function calculateAge(birthday: string): number | null {
   return age;
 }
 
-function parseMemo(memo: string | null): Record<string, any> {
+function parseMemo(memo: string | null | undefined): Record<string, any> {
   if (!memo) return {};
   try {
     return JSON.parse(memo);
@@ -65,6 +65,8 @@ function parseMemo(memo: string | null): Record<string, any> {
     return {};
   }
 }
+
+const EXCLUDED_MEMO_KEYS = ["notion_page_id", "groups", "referee", "referer"];
 
 // ── Helper: parse description into purpose + review ──
 function parseDescription(desc: string | null): { purpose: string; review: string } {
@@ -281,9 +283,21 @@ function RelationDetailView({
   }
 
   const memo = parseMemo(relation.memo);
-  const memoEntries = Object.entries(memo).filter(([k]) => k !== "notion_page_id");
+  const groups: string[] = Array.isArray(memo.groups) ? memo.groups : [];
+  const refereeIds: string[] = Array.isArray(memo.referee) ? memo.referee : [];
+  const refererIds: string[] = Array.isArray(memo.referer) ? memo.referer : [];
+  const memoEntries = Object.entries(memo).filter(([k]) => !EXCLUDED_MEMO_KEYS.includes(k));
   const age = relation.birthday ? calculateAge(relation.birthday) : null;
   const lastMetDays = daysSince(relation.lastMetAt);
+
+  const refereeNames = refereeIds
+    .map((id) => allRelations.find((r) => r.id === id))
+    .filter(Boolean)
+    .map((r) => r!.nickname || r!.name);
+  const refererNames = refererIds
+    .map((id) => allRelations.find((r) => r.id === id))
+    .filter(Boolean)
+    .map((r) => r!.nickname || r!.name);
 
   return (
     <div className="space-y-4">
@@ -341,6 +355,32 @@ function RelationDetailView({
                 마지막 만남: {formatDate(relation.lastMetAt)}
                 {lastMetDays !== null && ` (D+${lastMetDays})`}
               </span>
+            </div>
+          )}
+          {/* Groups */}
+          {groups.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">🏘️ 그룹</span>
+              <div className="flex gap-1 flex-wrap">
+                {groups.map((g) => (
+                  <span key={g} className="text-[10px] px-2 py-0.5 rounded-full bg-muted">
+                    {g}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Referrals */}
+          {refereeNames.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs">➡️</span>
+              <span className="text-xs text-muted-foreground">내가 소개: {refereeNames.join(", ")}</span>
+            </div>
+          )}
+          {refererNames.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs">⬅️</span>
+              <span className="text-xs text-muted-foreground">소개해준 사람: {refererNames.join(", ")}</span>
             </div>
           )}
           {/* Other memo fields */}
@@ -446,31 +486,35 @@ function RelationsListView({
 
   const isSearching = search.trim().length > 0;
 
+  const sortedRelations = useMemo(() => {
+    return [...relations].sort((a, b) => (b.intimacyScore ?? 0) - (a.intimacyScore ?? 0));
+  }, [relations]);
+
   const filteredRelations = useMemo(() => {
-    if (!isSearching) return relations;
+    if (!isSearching) return sortedRelations;
     const q = search.trim().toLowerCase();
-    return relations.filter((r) => {
+    return sortedRelations.filter((r) => {
       const name = (r.name || "").toLowerCase();
       const nickname = (r.nickname || "").toLowerCase();
       return name.includes(q) || nickname.includes(q);
     });
-  }, [relations, search, isSearching]);
+  }, [sortedRelations, search, isSearching]);
 
   const displayedRelations = isSearching
     ? filteredRelations
     : filteredRelations.slice(0, displayCount);
 
-  const hasMore = !isSearching && displayCount < relations.length;
+  const hasMore = !isSearching && displayCount < sortedRelations.length;
 
   useEffect(() => {
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.isIntersecting && !isSearching) {
-        setDisplayCount((prev) => Math.min(prev + 10, relations.length));
+        setDisplayCount((prev) => Math.min(prev + 10, sortedRelations.length));
       }
     });
     if (sentinelRef.current) observer.observe(sentinelRef.current);
     return () => observer.disconnect();
-  }, [relations.length, isSearching]);
+  }, [sortedRelations.length, isSearching]);
 
   // Reset display count when search changes
   useEffect(() => {
@@ -564,6 +608,19 @@ function RelationsListView({
                   </span>
                 )}
               </div>
+              {(() => {
+                const memoData = parseMemo(r.memo);
+                const cardGroups: string[] = Array.isArray(memoData.groups) ? memoData.groups.slice(0, 2) : [];
+                return cardGroups.length > 0 ? (
+                  <div className="flex gap-1 mt-1">
+                    {cardGroups.map((g) => (
+                      <span key={g} className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {g}
+                      </span>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
             </div>
           ))}
           {hasMore && (

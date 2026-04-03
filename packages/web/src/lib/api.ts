@@ -110,6 +110,7 @@ export interface Relation {
   meetingCount: number;
   createdAt: string;
   updatedAt: string;
+  intimacyScore?: number;
 }
 
 export interface AreaXp {

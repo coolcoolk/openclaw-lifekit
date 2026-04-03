@@ -20,7 +20,30 @@ relationRoutes.get("/stats", (c) => {
 // GET /api/relations
 relationRoutes.get("/", (c) => {
   const rows = db.select().from(relations).all();
-  return c.json(rows);
+  const today = new Date();
+
+  const withScore = rows.map((r) => {
+    const appts = sqlite
+      .query<{ start_at: string }, [string]>(
+        `SELECT t.start_at FROM tasks t, json_each(t.relation_ids) je
+         WHERE t.relation_ids IS NOT NULL
+           AND t.start_at IS NOT NULL
+           AND je.value = ?`
+      )
+      .all(r.id);
+
+    const score = appts.reduce((sum, a) => {
+      const days = Math.floor(
+        (today.getTime() - new Date(a.start_at).getTime()) / 86400000
+      );
+      if (days < 0) return sum;
+      return sum + 1 / (days + 30);
+    }, 0);
+
+    return { ...r, intimacyScore: Math.round(score * 1000) / 1000 };
+  });
+
+  return c.json(withScore);
 });
 
 // GET /api/relations/:id
@@ -28,7 +51,26 @@ relationRoutes.get("/:id", (c) => {
   const { id } = c.req.param();
   const row = db.select().from(relations).where(eq(relations.id, id)).get();
   if (!row) return c.json({ error: "Not found" }, 404);
-  return c.json(row);
+
+  const today = new Date();
+  const appts = sqlite
+    .query<{ start_at: string }, [string]>(
+      `SELECT t.start_at FROM tasks t, json_each(t.relation_ids) je
+       WHERE t.relation_ids IS NOT NULL
+         AND t.start_at IS NOT NULL
+         AND je.value = ?`
+    )
+    .all(id);
+
+  const score = appts.reduce((sum, a) => {
+    const days = Math.floor(
+      (today.getTime() - new Date(a.start_at).getTime()) / 86400000
+    );
+    if (days < 0) return sum;
+    return sum + 1 / (days + 30);
+  }, 0);
+
+  return c.json({ ...row, intimacyScore: Math.round(score * 1000) / 1000 });
 });
 
 // POST /api/relations
