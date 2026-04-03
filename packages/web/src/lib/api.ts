@@ -275,6 +275,8 @@ export const api = {
 
   // Relations
   getRelations: () => fetchJSON<Relation[]>("/relations"),
+  getRelation: (id: string) => fetchJSON<Relation>(`/relations/${id}`),
+  getTasksByRelation: (relationId: string) => fetchJSON<Task[]>(`/tasks?relation_id=${relationId}`),
   getRelationStats: () => fetchJSON<RelationStats[]>("/relations/stats"),
   createRelation: (data: Partial<Relation> & Record<string, any>) =>
     fetchJSON<Relation>("/relations", { method: "POST", body: JSON.stringify(data) }),
