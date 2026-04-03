@@ -100,6 +100,7 @@ taskRoutes.get("/", (c) => {
         t.all_day AS allDay, t.location, t.source,
         t.external_id AS externalId, t.color,
         t.linked_domain_id AS linkedDomainId,
+        t.relation_ids AS relationIds,
         p.name AS projectName,
         COALESCE(t.linked_domain_id, a.domain_id) AS domainId
       FROM tasks t
@@ -136,6 +137,7 @@ taskRoutes.get("/", (c) => {
         t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
+        t.relation_ids AS relationIds,
         p.name AS projectName,
         COALESCE(t.linked_domain_id, a.domain_id) AS domainId
       FROM tasks t
@@ -184,6 +186,7 @@ taskRoutes.get("/", (c) => {
         t.is_routine AS isRoutine, t.tags, t.sort_order AS sortOrder,
         t.estimated_minutes AS estimatedMinutes,
         t.start_at AS startAt, t.end_at AS endAt,
+        t.relation_ids AS relationIds,
         p.name AS projectName,
         COALESCE(t.linked_domain_id, a.domain_id) AS domainId
       FROM tasks t
