@@ -127,6 +127,143 @@ function RoutineManagerModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── 루틴 타임테이블 뷰 ──
+function RoutineTimeTableView({
+  onClose,
+  domains,
+}: {
+  onClose: () => void;
+  domains: Domain[];
+}) {
+  const [events, setEvents] = useState<{
+    id: string;
+    title: string;
+    start: string;
+    end?: string;
+    color: string;
+    textColor: string;
+    extendedProps: { isRoutine: boolean; task: Task };
+  }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddRoutine, setShowAddRoutine] = useState(false);
+  const calRef = useRef<FullCalendar>(null);
+
+  const loadEvents = useCallback(() => {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // 월요일
+    startOfWeek.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // 일요일
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const start = startOfWeek.toISOString();
+    const end = endOfWeek.toISOString();
+
+    setLoading(true);
+    api.getTasks({ view: "calendar", start, end })
+      .then(tasks => {
+        setEvents(tasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          start: t.startAt || "",
+          end: t.endAt || undefined,
+          color: t.isRoutine ? "#22c55e" : "#d1d5db",
+          textColor: t.isRoutine ? "#ffffff" : "#9ca3af",
+          extendedProps: { isRoutine: t.isRoutine, task: t },
+        })));
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+        로딩 중...
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0">
+        <button onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground">
+          ← 캘린더로 돌아가기
+        </button>
+        <h2 className="text-sm font-semibold">루틴 타임테이블</h2>
+        <button
+          onClick={() => setShowAddRoutine(true)}
+          className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700"
+        >
+          <Plus size={14} />
+          루틴 추가
+        </button>
+      </div>
+
+      {/* 안내 */}
+      <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 shrink-0">
+        🟢 초록색: 루틴 &nbsp;·&nbsp; 회색: 일반 일정 (이번 주 기준)
+        &nbsp;·&nbsp; 매주 일요일 오전 0시에 다음 주 루틴이 자동 추가됩니다
+      </div>
+
+      {/* 캘린더 */}
+      <div className="flex-1 min-h-0 px-1 py-1">
+        <FullCalendar
+          ref={calRef}
+          plugins={[timeGridPlugin]}
+          initialView="timeGridWeek"
+          headerToolbar={false}
+          dayHeaderContent={(args) => {
+            const dayNames = ["일","월","화","수","목","금","토"];
+            return dayNames[args.date.getDay()];
+          }}
+          firstDay={1}
+          slotMinTime="06:00:00"
+          slotMaxTime="24:00:00"
+          allDaySlot={false}
+          events={events}
+          eventClick={(info) => {
+            if (!info.event.extendedProps.isRoutine) {
+              info.jsEvent.preventDefault();
+              return;
+            }
+          }}
+          eventDidMount={(info) => {
+            if (!info.event.extendedProps.isRoutine) {
+              info.el.style.pointerEvents = "none";
+              info.el.style.opacity = "0.4";
+            }
+          }}
+          locale={koLocale}
+          height="100%"
+          slotDuration="00:30:00"
+          slotLabelInterval="01:00:00"
+          slotLabelFormat={{
+            hour: "numeric",
+            hour12: true,
+          }}
+        />
+      </div>
+
+      {/* 루틴 추가 모달 */}
+      {showAddRoutine && (
+        <RoutineTaskModal
+          onClose={() => setShowAddRoutine(false)}
+          onCreated={() => {
+            setShowAddRoutine(false);
+            loadEvents();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── 이벤트 색상 헬퍼 ──
 function eventColor(task: Task): string {
   const domainId = task.linkedDomainId || task.domainId;
@@ -1437,6 +1574,7 @@ export function CalendarPage() {
   const [hiddenDomains, setHiddenDomains] = useState<Set<string>>(new Set());
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showRoutineManager, setShowRoutineManager] = useState(false);
+  const [showRoutineView, setShowRoutineView] = useState(false);
   const [googleConnected, setGoogleConnected] = useState(false);
 
   // ── 삭제 Undo 상태 ──
@@ -1851,8 +1989,13 @@ export function CalendarPage() {
             </button>
           )}
           <button
-            onClick={() => setShowRoutineManager(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border border-purple-300 text-purple-600 hover:bg-purple-50 transition-colors min-h-[44px]"
+            onClick={() => setShowRoutineView(!showRoutineView)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border min-h-[44px] transition-colors",
+              showRoutineView
+                ? "bg-green-600 text-white border-green-600"
+                : "border-purple-300 text-purple-600 hover:bg-purple-50"
+            )}
           >
             {language === "ko" ? "루틴" : "Routine"}
           </button>
@@ -1890,6 +2033,14 @@ export function CalendarPage() {
         )}
 
         {/* 메인 캘린더 영역 */}
+        {showRoutineView ? (
+          <div className="flex-1 min-w-0">
+            <RoutineTimeTableView
+              onClose={() => setShowRoutineView(false)}
+              domains={domains}
+            />
+          </div>
+        ) : (
         <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4 overflow-y-auto">
           <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
             {/* 현재 시간 빨간줄 오버레이 */}
@@ -2048,9 +2199,10 @@ export function CalendarPage() {
           />
           </div>
         </div>
+        )}
       </div>
 
-      {/* 이벤트 상세 패널 */}
+      {/* 이벤트 상세 패널 */
       {selectedEvent && (
         <EventDetailPanel
           key={selectedEvent.id}
