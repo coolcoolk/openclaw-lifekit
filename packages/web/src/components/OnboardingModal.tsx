@@ -519,7 +519,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 value={birthDate}
                 onChange={(e) => setBirthDate(e.target.value)}
                 className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
-                autoFocus
+                
               />
               <button
                 onClick={handleBirthSkip}
@@ -565,7 +565,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 placeholder="예: INFJ"
                 maxLength={4}
                 className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow uppercase tracking-widest text-center font-bold"
-                autoFocus
+                
               />
               <button
                 onClick={handleMbtiSubmit}
@@ -601,7 +601,7 @@ export function OnboardingModal({ onComplete }: OnboardingModalProps) {
                 onChange={(e) => setTextInput(e.target.value)}
                 placeholder="입력해주세요..."
                 className="flex-1 px-3.5 py-2.5 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-foreground/20 transition-shadow"
-                autoFocus
+                
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && textInput.trim()) handleKitTextSubmit();
                 }}

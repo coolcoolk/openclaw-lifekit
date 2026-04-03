@@ -256,7 +256,7 @@ function RelationForm({
             onChange={(e) => setName(e.target.value)}
             placeholder={t("relations.enterName")}
             className="col-span-2 px-3 py-1.5 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-1 focus:ring-primary/30"
-            autoFocus
+            
           />
           <input
             type="text"

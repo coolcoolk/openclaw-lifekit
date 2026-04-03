@@ -701,7 +701,7 @@ function ProjectDetailContent({
 
   useEffect(() => {
     if (showNewTask) {
-      newTaskRef.current?.focus();
+      
     }
   }, [showNewTask]);
 
@@ -989,7 +989,7 @@ function TaskRow({
       >
         {editingField === "title" ? (
           <input
-            autoFocus
+            
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             onBlur={() => saveField("title", editTitle)}
@@ -1103,7 +1103,7 @@ function CreateProjectModal({
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    nameRef.current?.focus();
+    
     api.getAreas().then(setAllAreas).catch(() => {});
   }, []);
 

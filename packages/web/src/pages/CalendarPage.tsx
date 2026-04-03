@@ -777,7 +777,7 @@ function EventDetailContent({
                 onChange={(e) => setRelationSearch(e.target.value)}
                 placeholder="이름으로 검색..."
                 className="w-full px-3 py-2 text-sm border-b border-border bg-transparent outline-none"
-                autoFocus
+                
               />
               <div className="max-h-32 overflow-y-auto">
                 {availableRelations.length === 0 ? (
@@ -950,7 +950,7 @@ function CreateEventContent({
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    titleRef.current?.focus();
+    
     api.getRelations().then(setAllRelations).catch(() => {});
   }, []);
 

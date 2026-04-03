@@ -523,7 +523,7 @@ function DetailedTaskRow({
       >
         {editingField === "title" ? (
           <input
-            autoFocus
+            
             value={editTitle}
             onChange={(e) => setEditTitle(e.target.value)}
             onBlur={() => saveField("title", editTitle)}

@@ -1270,7 +1270,7 @@ function AddForm({
   return (
     <div className="border border-primary/30 rounded-lg p-3 bg-primary/5 space-y-2 mt-2">
       <input
-        autoFocus
+        
         value={newName}
         onChange={(e) => setNewName(e.target.value)}
         onKeyDown={(e) => {
