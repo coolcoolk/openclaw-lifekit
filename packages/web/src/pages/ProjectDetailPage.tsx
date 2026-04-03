@@ -175,9 +175,7 @@ export function ProjectDetailPage() {
     }
   }
 
-  useEffect(() => {
-    if (showNewTask) newTaskRef.current?.focus();
-  }, [showNewTask]);
+
 
   if (loading) {
     return (
@@ -302,15 +300,12 @@ export function ProjectDetailPage() {
         {/* 목표일 */}
         <div className="flex items-center gap-3">
           <Calendar size={14} className="shrink-0 text-muted-foreground" />
-          <input
-            type="date"
+          <DueDatePicker
             value={targetDate}
-            onChange={(e) => {
-              setTargetDate(e.target.value);
-              autoSave("targetDate", e.target.value);
+            onChange={(val) => {
+              setTargetDate(val);
+              autoSave("targetDate", val);
             }}
-            className={inputClass}
-            placeholder="목표 완료일"
           />
         </div>
 
@@ -386,11 +381,9 @@ export function ProjectDetailPage() {
                       onChange={(e) => setNewTaskEstimate(e.target.value)}
                       className="text-xs px-2 py-1.5 border border-border rounded-md bg-background w-24"
                     />
-                    <input
-                      type="date"
+                    <DueDatePicker
                       value={newTaskDueDate}
-                      onChange={(e) => setNewTaskDueDate(e.target.value)}
-                      className="text-xs px-2 py-1.5 border border-border rounded-md bg-background"
+                      onChange={(val) => setNewTaskDueDate(val)}
                     />
                   </div>
                   <div className="flex justify-end gap-2">

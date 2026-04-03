@@ -25,9 +25,6 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated }: Rout
   // Display order: 월화수목금토일 (1,2,3,4,5,6,0)
   const dayOrder = [1, 2, 3, 4, 5, 6, 0];
 
-  useEffect(() => {
-    titleRef.current?.focus();
-  }, []);
 
   function toggleDay(day: number) {
     setSelectedDays((prev) =>
