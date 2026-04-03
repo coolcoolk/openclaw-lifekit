@@ -959,7 +959,7 @@ export function RelationsDashboard() {
 
   const birthdayThisMonth = relations.filter((r) => isBirthdayThisMonth(r.birthday));
 
-  const recentUnreviewed = dashboardTasks
+  const recentUnreviewed = appointments
     .filter((t) => t.status === "done" && t.startAt && new Date(t.startAt) <= new Date())
     .filter((t) => {
       const desc = t.description || "";
