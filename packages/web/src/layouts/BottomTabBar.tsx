@@ -18,7 +18,7 @@ export function BottomTabBar({ activePage, onNavigate }: BottomTabBarProps) {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm" style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}>
       <div className="flex items-stretch">
         {tabs.map((tab) => {
           const isActive = tab.id === activePage;

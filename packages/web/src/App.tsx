@@ -22,12 +22,16 @@ function Layout() {
   // iOS PWA: 실제 뷰포트 높이를 CSS 변수로 설정
   useEffect(() => {
     const setVh = () => {
-      document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+      // visualViewport가 iOS PWA에서 더 정확함
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty('--app-height', `${h}px`);
     };
     setVh();
+    window.visualViewport?.addEventListener('resize', setVh);
     window.addEventListener('resize', setVh);
-    window.addEventListener('orientationchange', () => setTimeout(setVh, 100));
+    window.addEventListener('orientationchange', () => setTimeout(setVh, 300));
     return () => {
+      window.visualViewport?.removeEventListener('resize', setVh);
       window.removeEventListener('resize', setVh);
     };
   }, []);
@@ -60,7 +64,7 @@ function Layout() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'var(--app-height, 100dvh)', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+    <div className="flex flex-col" style={{ height: 'var(--app-height, 100dvh)', paddingTop: 'env(safe-area-inset-top)' }}>
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       <div className="flex flex-1 min-h-0">
       {!isMobile && (
