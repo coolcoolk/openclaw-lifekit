@@ -64,7 +64,7 @@ function Layout() {
   }
 
   return (
-    <div className="flex flex-col" style={{ height: 'var(--app-height, 100dvh)', paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="flex flex-col" style={{ height: '100%', paddingTop: 'env(safe-area-inset-top)' }}>
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       <div className="flex flex-1 min-h-0">
       {!isMobile && (
