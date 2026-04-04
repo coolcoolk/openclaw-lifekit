@@ -218,48 +218,59 @@ async function checkUpcomingEvents(): Promise<void> {
 }
 
 // ══════════════════════════════════════════
-// 2. 식단·운동 브리핑
+// 2. 아침 브리핑 (오늘 일정 + 할 일 요약)
 // ══════════════════════════════════════════
 async function sendDailyBriefing(): Promise<void> {
   const todayStr = getKSTDateStr();
   const jobKey = `briefing-${todayStr}`;
   if (!shouldRun(jobKey)) return;
 
-  const hasDiet = isKitInstalled("diet");
-  const hasExercise = isKitInstalled("exercise");
+  // 오늘 캘린더 이벤트 (start_at 기준)
+  const todayEvents = sqlite
+    .query<any, [string]>(
+      `SELECT t.title, t.start_at AS startAt, t.end_at AS endAt, t.location,
+              p.name AS projectName
+       FROM tasks t
+       LEFT JOIN projects p ON t.project_id = p.id
+       WHERE date(t.start_at) = ? AND t.status != 'done'
+       ORDER BY t.start_at`
+    )
+    .all(todayStr);
 
-  if (!hasDiet && !hasExercise) {
-    console.log("[scheduler] No diet/exercise kits installed, skipping briefing");
-    return;
-  }
+  // 오늘 마감 태스크
+  const dueTasks = sqlite
+    .query<any, [string]>(
+      `SELECT t.title, t.priority, p.name AS projectName
+       FROM tasks t
+       LEFT JOIN projects p ON t.project_id = p.id
+       WHERE date(t.due_date) = ? AND t.status != 'done'
+       ORDER BY t.priority`
+    )
+    .all(todayStr);
 
-  let promptParts: string[] = [];
+  const eventLines = todayEvents.map((e: any) => {
+    const time = e.startAt ? new Date(e.startAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }) : "";
+    return `- ${time} ${e.title}${e.location ? ` (${e.location})` : ""}`;
+  });
 
-  if (hasDiet) {
-    const dietData = await fetchAPI(`/api/kits/diet/summary?date=${todayStr}`);
-    if (dietData) {
-      promptParts.push(`## 오늘의 식단 기록\n${JSON.stringify(dietData, null, 2)}`);
-    }
-  }
+  const taskLines = dueTasks.map((t: any) => `- ${t.title}${t.projectName ? ` [${t.projectName}]` : ""}`);
 
-  if (hasExercise) {
-    const exerciseData = await fetchAPI(`/api/kits/exercise/logs?date=${todayStr}`);
-    if (exerciseData) {
-      promptParts.push(`## 오늘의 운동 기록\n${JSON.stringify(exerciseData, null, 2)}`);
-    }
-  }
+  const prompt = `오늘(${todayStr}) 하루 브리핑을 해주세요.
 
-  if (promptParts.length === 0) {
-    console.log("[scheduler] No diet/exercise data today, skipping briefing");
-    return;
-  }
+## 오늘 일정 (${todayEvents.length}개)
+${eventLines.join("\n") || "없음"}
+
+## 오늘 마감 태스크 (${dueTasks.length}개)
+${taskLines.join("\n") || "없음"}
+
+짧고 활기차게 오늘 하루를 준비할 수 있도록 브리핑해주세요.`;
 
   await generateAndSendMessage(
-    `오늘 하루의 건강 기록을 요약해주세요:\n\n${promptParts.join("\n\n")}`,
-    "LifeKit 건강 브리핑 봇. 오늘의 식단과 운동 기록을 간결하게 요약하고, 긍정적인 피드백과 개선점을 짧게 제안. 이모지 활용."
+    prompt,
+    "LifeKit 아침 브리핑 봇. 오늘의 일정과 할 일을 간결하게 요약하고, 하루를 시작하는 에너지를 불어넣어 주세요. 이모지 활용."
   );
 
-  console.log(`[scheduler] Daily briefing sent for ${todayStr}`);
+  console.log(`[scheduler] Morning briefing sent for ${todayStr}`);
 }
 
 // ══════════════════════════════════════════
@@ -582,7 +593,14 @@ export function startNotificationScheduler(): void {
         );
       }
 
-      // 2. 일일 회고 (건강 데이터 포함): reviewTime에 실행
+      // 2. 아침 브리핑: briefingTime에 실행
+      if (currentTime === settings.briefingTime) {
+        sendDailyBriefing().catch((err) =>
+          console.error("[scheduler] Briefing failed:", err.message)
+        );
+      }
+
+      // 4. 일일 회고 (건강 데이터 포함): reviewTime에 실행
       if (currentTime === settings.reviewTime) {
         generateDailyReview().catch((err) =>
           console.error("[scheduler] Daily review failed:", err.message)
