@@ -37,7 +37,7 @@ interface RoutineSettings {
 
 function loadSettings(): RoutineSettings {
   const defaults: RoutineSettings = {
-    briefingTime: "08:00",
+    briefingTime: "06:00",
     reviewTime: "22:00",
     weeklyReviewTime: "21:00",
     weeklyReviewDay: 0,
