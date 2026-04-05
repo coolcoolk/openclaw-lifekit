@@ -75,7 +75,7 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaul
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
+    <div className="fixed inset-0 z-[101] flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
         className="bg-background border border-border rounded-lg shadow-lg w-full max-w-md mx-4 p-6"
         onClick={(e) => e.stopPropagation()}

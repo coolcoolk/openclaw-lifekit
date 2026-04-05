@@ -57,9 +57,9 @@ function RoutineManagerModal({ onClose }: { onClose: () => void }) {
   return (
     <>
       {/* 배경 오버레이 */}
-      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 z-[100]" onClick={onClose} />
       {/* 바텀시트 패널 */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: "80vh", paddingBottom: "env(safe-area-inset-bottom)", animation: "bottomSheetSlideUp 0.2s ease-out" }}>
+      <div className="fixed bottom-0 left-0 right-0 z-[101] bg-background rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: "80vh", paddingBottom: "env(safe-area-inset-bottom)", animation: "bottomSheetSlideUp 0.2s ease-out" }}>
         {/* 드래그 핸들 */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 rounded-full bg-gray-300" />
@@ -188,9 +188,9 @@ function RoutineEditSheet({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/40 z-[100]" onClick={onClose} />
       <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl flex flex-col"
+        className="fixed bottom-0 left-0 right-0 z-[101] bg-background rounded-t-2xl shadow-2xl flex flex-col"
         style={{ maxHeight: "80vh", paddingBottom: "env(safe-area-inset-bottom)", animation: "bottomSheetSlideUp 0.2s ease-out" }}
       >
         <div className="flex justify-center pt-3 pb-1">
