@@ -320,6 +320,8 @@ taskRoutes.patch("/:id", async (c) => {
   if (body.tags !== undefined) updates.tags = JSON.stringify(body.tags);
   if (body.sort_order !== undefined) updates.sortOrder = body.sort_order;
   if (body.estimated_minutes !== undefined) updates.estimatedMinutes = body.estimated_minutes;
+  if (body.routine_rule !== undefined || body.routineRule !== undefined) updates.routineRule = body.routine_rule ?? body.routineRule;
+  if (body.is_routine !== undefined || body.isRoutine !== undefined) updates.isRoutine = body.is_routine ?? body.isRoutine;
   // Calendar fields (camelCase 또는 snake_case 둘 다 허용)
   if (body.startAt !== undefined || body.start_at !== undefined) updates.startAt = body.startAt ?? body.start_at;
   if (body.endAt !== undefined || body.end_at !== undefined) updates.endAt = body.endAt ?? body.end_at;
