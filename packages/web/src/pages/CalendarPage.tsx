@@ -198,7 +198,7 @@ function RoutineEditSheet({
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-b border-border">
           <h2 className="text-base font-semibold">루틴 수정</h2>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
+          <button onClick={handleSave} disabled={!title.trim() || selectedDays.length === 0 || saving} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
             <X size={18} />
           </button>
         </div>
@@ -250,7 +250,7 @@ function RoutineEditSheet({
           </div>
         </div>
         {/* 액션 버튼 */}
-        <div className="border-t border-border px-5 py-3 flex gap-2">
+        <div className="border-t border-border px-5 py-3 flex gap-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
           <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 transition-colors">
             <Trash2 size={14} /> 삭제
           </button>
