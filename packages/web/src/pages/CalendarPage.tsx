@@ -212,7 +212,7 @@ function RoutineTimeTableView({
       </div>
 
       {/* 캘린더 */}
-      <div className="px-1 py-1" style={{ height: 'calc(100vh - 160px)' }}>
+      <div className="px-1 py-1" style={{ height: 'calc(100vh - 230px)' }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin]}
@@ -223,7 +223,7 @@ function RoutineTimeTableView({
             return dayNames[args.date.getDay()];
           }}
           firstDay={1}
-          slotMinTime="06:00:00"
+          slotMinTime="00:00:00"
           slotMaxTime="24:00:00"
           allDaySlot={false}
           events={events}
@@ -240,7 +240,7 @@ function RoutineTimeTableView({
             }
           }}
           locale={koLocale}
-          height="calc(100vh - 160px)"
+          height="calc(100vh - 230px)"
           slotDuration="00:30:00"
           slotLabelInterval="01:00:00"
           slotLabelFormat={{
