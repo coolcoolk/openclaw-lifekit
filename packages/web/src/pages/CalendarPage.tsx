@@ -2115,18 +2115,8 @@ export function CalendarPage() {
     updateNowLine();
     const interval = setInterval(updateNowLine, 60000);
 
-    // 스크롤 시에도 위치 업데이트
-    const container = calendarContainerRef.current;
-    const scroller = container?.querySelector(".fc-scroller");
-    if (scroller) {
-      scroller.addEventListener("scroll", updateNowLine);
-    }
-
     return () => {
       clearInterval(interval);
-      if (scroller) {
-        scroller.removeEventListener("scroll", updateNowLine);
-      }
     };
   }, [currentView]);
 
