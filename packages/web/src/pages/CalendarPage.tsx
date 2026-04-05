@@ -424,7 +424,7 @@ function RoutineTimeTableView({
       </div>
 
       {/* 캘린더 */}
-      <div className="px-1 py-1" style={{ height: 'calc(100dvh - 230px)' }}>
+      <div className="px-1 py-1" style={{ height: 'calc(100dvh - 160px - 56px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px))' }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin, interactionPlugin]}
@@ -501,7 +501,7 @@ function RoutineTimeTableView({
           }}
           stickyHeaderDates={true}
           locale={koLocale}
-          height="calc(100dvh - 230px)"
+          height="calc(100dvh - 160px - 56px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px))"
           slotDuration="00:30:00"
           slotLabelInterval="01:00:00"
           slotLabelFormat={{
