@@ -528,7 +528,7 @@ function RoutineTimeTableView({
       {editingRoutine && (
         <RoutineEditSheet
           task={editingRoutine}
-          onClose={() => setEditingRoutine(null)}
+          onClose={() => { setEditingRoutine(null); loadEvents(); }}
           onSaved={() => {
             setEditingRoutine(null);
             loadEvents();
