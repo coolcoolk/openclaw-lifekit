@@ -20,8 +20,6 @@
 
 html, body {
   height: 100%;
-  /* iOS PWA: -webkit-fill-available로 실제 화면 높이 확보 */
-  height: -webkit-fill-available;
 }
 
 body {
@@ -32,7 +30,6 @@ body {
 
 #root {
   height: 100%;
-  height: -webkit-fill-available;
 }
 
 /* FullCalendar 테마 오버라이드 */
