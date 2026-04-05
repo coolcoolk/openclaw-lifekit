@@ -1921,8 +1921,6 @@ export function CalendarPage() {
     setEvents(data);
   }, []);
 
-  const hasInitialScrolled = useRef(false);
-
   const handleDatesSet = useCallback(
     (arg: DatesSetArg) => {
       const start = arg.startStr;
@@ -1930,19 +1928,20 @@ export function CalendarPage() {
       dateRangeRef.current = { start, end };
       setCurrentView(arg.view.type);
       loadEvents(start, end);
-      // 초기 로드 1회만 현재 시간으로 스크롤
-      if (!hasInitialScrolled.current) {
-        hasInitialScrolled.current = true;
-        const now = new Date();
-        const h = Math.max(0, now.getHours() - 1);
-        const scrollTime = `${String(h).padStart(2, "0")}:00:00`;
-        setTimeout(() => {
-          calendarRef.current?.getApi().scrollToTime(scrollTime);
-        }, 300);
-      }
     },
     [loadEvents],
   );
+
+  // 마운트 시 1회만 현재 시간으로 스크롤
+  useEffect(() => {
+    const now = new Date();
+    const h = Math.max(0, now.getHours() - 1);
+    const scrollTime = `${String(h).padStart(2, "0")}:00:00`;
+    const timer = setTimeout(() => {
+      calendarRef.current?.getApi().scrollToTime(scrollTime);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []); // 빈 deps 배열 = 마운트 시 1회만
 
   const changeView = useCallback((view: string) => {
     calendarRef.current?.getApi().changeView(view);
