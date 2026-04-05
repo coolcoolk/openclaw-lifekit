@@ -212,7 +212,7 @@ function RoutineTimeTableView({
       </div>
 
       {/* 캘린더 */}
-      <div className="flex-1 min-h-0 px-1 py-1">
+      <div className="px-1 py-1" style={{ height: 'calc(100vh - 160px)' }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin]}
@@ -240,7 +240,7 @@ function RoutineTimeTableView({
             }
           }}
           locale={koLocale}
-          height="100%"
+          height="calc(100vh - 160px)"
           slotDuration="00:30:00"
           slotLabelInterval="01:00:00"
           slotLabelFormat={{
@@ -2035,7 +2035,7 @@ export function CalendarPage() {
 
         {/* 메인 캘린더 영역 */}
         {showRoutineView ? (
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 h-full overflow-hidden">
             <RoutineTimeTableView
               onClose={() => setShowRoutineView(false)}
               domains={domains}
