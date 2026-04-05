@@ -127,6 +127,146 @@ function RoutineManagerModal({ onClose }: { onClose: () => void }) {
   );
 }
 
+// ── 루틴 수정 바텀시트 ──
+function RoutineEditSheet({
+  task,
+  onClose,
+  onSaved,
+}: {
+  task: Task;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const rule = (() => {
+    try { return JSON.parse(task.routineRule || "{}"); } catch { return {}; }
+  })();
+
+  const [title, setTitle] = useState(task.title);
+  const [time, setTime] = useState<string>(rule.time || "");
+  const [endTime, setEndTime] = useState<string>(rule.endTime || "");
+  const [selectedDays, setSelectedDays] = useState<number[]>(rule.days || []);
+  const [saving, setSaving] = useState(false);
+
+  const dayLabels = ["일","월","화","수","목","금","토"];
+  const dayOrder = [1,2,3,4,5,6,0];
+
+  const toggleDay = (day: number) => {
+    setSelectedDays(prev =>
+      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+    );
+  };
+
+  const handleSave = async () => {
+    if (!title.trim() || selectedDays.length === 0) return;
+    setSaving(true);
+    try {
+      const newRule = JSON.stringify({
+        ...rule,
+        days: selectedDays.sort((a, b) => a - b),
+        ...(time ? { time } : {}),
+        ...(endTime ? { endTime } : {}),
+      });
+      await api.updateTask(task.id, {
+        title: title.trim(),
+        routine_rule: newRule,
+      } as any);
+      onSaved();
+    } catch (err) {
+      console.error("Failed to update routine:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!confirm("이 루틴을 삭제하시겠습니까?")) return;
+    await api.deleteTask(task.id);
+    onSaved();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-50" onClick={onClose} />
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 bg-background rounded-t-2xl shadow-2xl flex flex-col"
+        style={{ maxHeight: "80vh", paddingBottom: "env(safe-area-inset-bottom)", animation: "bottomSheetSlideUp 0.2s ease-out" }}
+      >
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-10 h-1 rounded-full bg-gray-300" />
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-border">
+          <h2 className="text-base font-semibold">루틴 수정</h2>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {/* 제목 */}
+          <div>
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">제목</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          {/* 요일 */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs text-muted-foreground font-medium">반복 요일</label>
+              <div className="flex gap-1.5">
+                <button type="button" onClick={() => setSelectedDays([1,2,3,4,5])} className="text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground">평일</button>
+                <button type="button" onClick={() => setSelectedDays([0,1,2,3,4,5,6])} className="text-[10px] px-2 py-0.5 rounded bg-muted hover:bg-muted/80 text-muted-foreground">매일</button>
+              </div>
+            </div>
+            <div className="flex gap-1.5">
+              {dayOrder.map(day => (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => toggleDay(day)}
+                  className={`flex-1 py-2 text-xs font-medium rounded-md border transition-colors ${
+                    selectedDays.includes(day)
+                      ? "bg-green-600 text-white border-green-600"
+                      : "bg-background border-border text-muted-foreground hover:border-green-400 hover:text-green-600"
+                  }`}
+                >
+                  {dayLabels[day]}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* 시간 */}
+          <div>
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">시간</label>
+            <div className="flex items-center gap-2">
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+              <span className="text-xs text-muted-foreground">~</span>
+              <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
+            </div>
+          </div>
+        </div>
+        {/* 액션 버튼 */}
+        <div className="border-t border-border px-5 py-3 flex gap-2">
+          <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 transition-colors">
+            <Trash2 size={14} /> 삭제
+          </button>
+          <div className="flex-1" />
+          <button onClick={onClose} className="px-4 py-2 text-sm rounded-md hover:bg-muted transition-colors">취소</button>
+          <button
+            onClick={handleSave}
+            disabled={!title.trim() || selectedDays.length === 0 || saving}
+            className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {saving ? "..." : "저장"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── 루틴 타임테이블 뷰 ──
 function RoutineTimeTableView({
   onClose,
@@ -146,6 +286,7 @@ function RoutineTimeTableView({
   }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddRoutine, setShowAddRoutine] = useState(false);
+  const [editingRoutine, setEditingRoutine] = useState<Task | null>(null);
   const calRef = useRef<FullCalendar>(null);
 
   const loadEvents = useCallback(async () => {
@@ -277,7 +418,7 @@ function RoutineTimeTableView({
       <div className="px-1 py-1" style={{ height: 'calc(var(--app-height, 100vh) - 230px)' }}>
         <FullCalendar
           ref={calRef}
-          plugins={[timeGridPlugin]}
+          plugins={[timeGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
           headerToolbar={false}
           dayHeaderContent={(args) => {
@@ -288,12 +429,51 @@ function RoutineTimeTableView({
           slotMinTime="00:00:00"
           slotMaxTime="24:00:00"
           allDaySlot={false}
+          editable={true}
           events={events}
           eventClick={(info) => {
             if (!info.event.extendedProps.isRoutine) {
               info.jsEvent.preventDefault();
               return;
             }
+            setEditingRoutine(info.event.extendedProps.task);
+          }}
+          eventDrop={(info) => {
+            if (!info.event.extendedProps.isRoutine) {
+              info.revert();
+              return;
+            }
+            const task = info.event.extendedProps.task as Task;
+            const newStart = info.event.start;
+            if (!newStart || !task?.routineRule) { info.revert(); return; }
+            let rule: any;
+            try { rule = JSON.parse(task.routineRule); } catch { info.revert(); return; }
+            const newTime = `${String(newStart.getHours()).padStart(2,'0')}:${String(newStart.getMinutes()).padStart(2,'0')}`;
+            const newEndTime = info.event.end
+              ? `${String(info.event.end.getHours()).padStart(2,'0')}:${String(info.event.end.getMinutes()).padStart(2,'0')}`
+              : rule.endTime;
+            rule.time = newTime;
+            if (newEndTime) rule.endTime = newEndTime;
+            api.updateTask(task.id, { routine_rule: JSON.stringify(rule) } as any)
+              .then(() => loadEvents())
+              .catch(() => info.revert());
+          }}
+          eventResize={(info) => {
+            if (!info.event.extendedProps.isRoutine) {
+              info.revert();
+              return;
+            }
+            const task = info.event.extendedProps.task as Task;
+            const newStart = info.event.start;
+            const newEnd = info.event.end;
+            if (!newStart || !task?.routineRule) { info.revert(); return; }
+            let rule: any;
+            try { rule = JSON.parse(task.routineRule); } catch { info.revert(); return; }
+            rule.time = `${String(newStart.getHours()).padStart(2,'0')}:${String(newStart.getMinutes()).padStart(2,'0')}`;
+            if (newEnd) rule.endTime = `${String(newEnd.getHours()).padStart(2,'0')}:${String(newEnd.getMinutes()).padStart(2,'0')}`;
+            api.updateTask(task.id, { routine_rule: JSON.stringify(rule) } as any)
+              .then(() => loadEvents())
+              .catch(() => info.revert());
           }}
           eventDidMount={(info) => {
             if (!info.event.extendedProps.isRoutine) {
@@ -318,6 +498,18 @@ function RoutineTimeTableView({
           onClose={() => setShowAddRoutine(false)}
           onCreated={() => {
             setShowAddRoutine(false);
+            loadEvents();
+          }}
+        />
+      )}
+
+      {/* 루틴 수정 바텀시트 */}
+      {editingRoutine && (
+        <RoutineEditSheet
+          task={editingRoutine}
+          onClose={() => setEditingRoutine(null)}
+          onSaved={() => {
+            setEditingRoutine(null);
             loadEvents();
           }}
         />
