@@ -148,32 +148,94 @@ function RoutineTimeTableView({
   const [showAddRoutine, setShowAddRoutine] = useState(false);
   const calRef = useRef<FullCalendar>(null);
 
-  const loadEvents = useCallback(() => {
+  const loadEvents = useCallback(async () => {
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay() + 1); // 월요일
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // 일요일
-    endOfWeek.setHours(23, 59, 59, 999);
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // 월요일
+    monday.setHours(0, 0, 0, 0);
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6); // 일요일
+    sunday.setHours(23, 59, 59, 999);
 
-    const start = startOfWeek.toISOString();
-    const end = endOfWeek.toISOString();
+    const start = monday.toISOString();
+    const end = sunday.toISOString();
+
+    // 이번 주 날짜 배열 (월~일)
+    const weekDates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      return d;
+    });
 
     setLoading(true);
-    api.getTasks({ view: "calendar", start, end })
-      .then(tasks => {
-        setEvents(tasks.map(t => ({
-          id: t.id,
-          title: t.title,
-          start: t.startAt || "",
-          end: t.endAt || undefined,
-          color: t.isRoutine ? "#22c55e" : "#d1d5db",
-          textColor: t.isRoutine ? "#ffffff" : "#9ca3af",
-          extendedProps: { isRoutine: t.isRoutine, task: t },
-        })));
-      })
-      .finally(() => setLoading(false));
+    try {
+      // 1) 기존 캘린더 이벤트 (start_at 있는 태스크)
+      const calendarTasks = await api.getTasks({ view: "calendar", start, end });
+      const calendarEvents = calendarTasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        start: t.startAt || "",
+        end: t.endAt || undefined,
+        color: t.isRoutine ? "#22c55e" : "#d1d5db",
+        textColor: t.isRoutine ? "#ffffff" : "#9ca3af",
+        extendedProps: { isRoutine: t.isRoutine, task: t },
+      }));
+
+      // 2) 루틴 원본 가져오기 (is_routine=true, startAt은 null)
+      const routineTasks = await api.getTasks({ is_routine: "true" });
+
+      // 이미 캘린더에 있는 루틴 인스턴스의 원본 ID set (중복 방지)
+      // source='routine'인 인스턴스는 이미 calendarTasks에 포함됨
+      const existingRoutineDates = new Set(
+        calendarTasks
+          .filter(t => t.isRoutine && t.startAt)
+          .map(t => {
+            const dateStr = t.startAt!.slice(0, 10);
+            // externalId나 title 기반으로 원본 매칭
+            return `${t.title}_${dateStr}`;
+          })
+      );
+
+      // 3) 루틴 원본의 routineRule 파싱 → 이번 주 가상 이벤트 생성
+      const routineVirtualEvents: typeof calendarEvents = [];
+      for (const routine of routineTasks) {
+        if (!routine.routineRule || routine.startAt) continue; // startAt 있으면 이미 인스턴스
+        try {
+          const rule = JSON.parse(routine.routineRule);
+          const days: number[] = rule.days || [];
+          for (const dayNum of days) {
+            const date = weekDates.find(d => d.getDay() === dayNum);
+            if (!date) continue;
+            const dateStr = date.toISOString().split('T')[0];
+
+            // 중복 방지: 같은 제목+날짜의 인스턴스가 이미 있으면 스킵
+            const key = `${routine.title}_${dateStr}`;
+            if (existingRoutineDates.has(key)) continue;
+
+            const startAt = rule.time ? `${dateStr}T${rule.time}:00` : `${dateStr}T00:00:00`;
+            const endAt = rule.endTime ? `${dateStr}T${rule.endTime}:00` : undefined;
+
+            routineVirtualEvents.push({
+              id: `routine-virtual-${routine.id}-${dayNum}`,
+              title: routine.title,
+              start: startAt,
+              end: endAt,
+              color: "#22c55e",
+              textColor: "#ffffff",
+              extendedProps: { isRoutine: true, task: routine },
+            });
+          }
+        } catch {
+          // routineRule 파싱 실패 시 무시
+        }
+      }
+
+      setEvents([...calendarEvents, ...routineVirtualEvents]);
+    } catch {
+      setEvents([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -212,7 +274,7 @@ function RoutineTimeTableView({
       </div>
 
       {/* 캘린더 */}
-      <div className="px-1 py-1" style={{ height: 'calc(100vh - 230px)' }}>
+      <div className="px-1 py-1" style={{ height: 'calc(var(--app-height, 100vh) - 230px)' }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin]}
@@ -240,7 +302,7 @@ function RoutineTimeTableView({
             }
           }}
           locale={koLocale}
-          height="calc(100vh - 230px)"
+          height="calc(var(--app-height, 100vh) - 230px)"
           slotDuration="00:30:00"
           slotLabelInterval="01:00:00"
           slotLabelFormat={{
