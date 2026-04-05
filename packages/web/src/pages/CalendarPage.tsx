@@ -2323,8 +2323,8 @@ export function CalendarPage() {
             />
           </div>
         ) : (
-        <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4 flex flex-col min-h-0 overflow-hidden">
-          <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4">
+          <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
             {/* 현재 시간 빨간줄 오버레이 */}
             {nowLineTop !== null && (
               <div style={{ position: "absolute", top: nowLineTop, left: 0, right: 0, zIndex: 10, pointerEvents: "none", height: 2 }}>
@@ -2467,7 +2467,7 @@ export function CalendarPage() {
               hour: "numeric",
               hour12: true,
             }}
-            height="100%"
+            height="calc(var(--app-height, 100dvh) - 130px)"
             eventTimeFormat={{
               hour: "numeric",
               minute: "2-digit",
