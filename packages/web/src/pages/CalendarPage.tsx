@@ -497,6 +497,7 @@ function RoutineTimeTableView({
               info.el.style.opacity = "0.4";
             }
           }}
+          stickyHeaderDates={true}
           locale={koLocale}
           height="calc(var(--app-height, 100vh) - 230px)"
           slotDuration="00:30:00"
@@ -2316,7 +2317,7 @@ export function CalendarPage() {
             />
           </div>
         ) : (
-        <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4 overflow-y-auto">
+        <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4 overflow-hidden">
           <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
             {/* 현재 시간 빨간줄 오버레이 */}
             {nowLineTop !== null && (
@@ -2465,7 +2466,8 @@ export function CalendarPage() {
               hour: "numeric",
               hour12: true,
             }}
-            height="auto"
+            stickyHeaderDates={true}
+            height="100%"
             eventTimeFormat={{
               hour: "numeric",
               minute: "2-digit",
