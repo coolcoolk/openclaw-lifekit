@@ -166,10 +166,12 @@ function RoutineEditSheet({
         ...(time ? { time } : {}),
         ...(endTime ? { endTime } : {}),
       });
-      await api.updateTask(task.id, {
+      console.log('[RoutineEdit] updating task:', task.id, { title: title.trim(), routine_rule: newRule });
+      const result = await api.updateTask(task.id, {
         title: title.trim(),
         routine_rule: newRule,
       } as any);
+      console.log('[RoutineEdit] update result:', result);
       onSaved();
     } catch (err) {
       console.error("Failed to update routine:", err);
