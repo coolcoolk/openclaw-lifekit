@@ -1841,8 +1841,7 @@ export function CalendarPage() {
   const calendarRef = useRef<FullCalendar>(null);
   const calendarContainerRef = useRef<HTMLDivElement>(null);
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null);
-  const [nowLineTop, setNowLineTop] = useState<number | null>(null);
-  const [nowLineX, setNowLineX] = useState<{ left: number; right: number } | null>(null);
+  const nowLineRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const { t, language } = useLanguage();
   const [currentView, setCurrentView] = useState<string>("timeGridWeek");
@@ -2342,6 +2341,7 @@ export function CalendarPage() {
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
             initialView="timeGridWeek"
+            scrollTimeReset={false}
             longPressDelay={500}
             eventLongPressDelay={500}
             selectLongPressDelay={500}
