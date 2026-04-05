@@ -250,7 +250,7 @@ function RoutineEditSheet({
           </div>
         </div>
         {/* 액션 버튼 */}
-        <div className="border-t border-border px-5 py-3 flex gap-2" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+        <div className="border-t border-border px-5 py-3 flex gap-2">
           <button onClick={handleDelete} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md text-destructive hover:bg-destructive/10 transition-colors">
             <Trash2 size={14} /> 삭제
           </button>
