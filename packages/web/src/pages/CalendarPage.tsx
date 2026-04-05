@@ -275,6 +275,12 @@ function RoutineTimeTableView({
   onClose: () => void;
   domains: Domain[];
 }) {
+  const toLocalDateStr = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
   const [events, setEvents] = useState<{
     id: string;
     title: string;
@@ -286,6 +292,7 @@ function RoutineTimeTableView({
   }[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddRoutine, setShowAddRoutine] = useState(false);
+  const [newRoutineDefaults, setNewRoutineDefaults] = useState<{ time?: string; endTime?: string; days?: number[] } | null>(null);
   const [editingRoutine, setEditingRoutine] = useState<Task | null>(null);
   const calRef = useRef<FullCalendar>(null);
 
@@ -347,7 +354,7 @@ function RoutineTimeTableView({
           for (const dayNum of days) {
             const date = weekDates.find(d => d.getDay() === dayNum);
             if (!date) continue;
-            const dateStr = date.toISOString().split('T')[0];
+            const dateStr = toLocalDateStr(date);
 
             // 중복 방지: 같은 제목+날짜의 인스턴스가 이미 있으면 스킵
             const key = `${routine.title}_${dateStr}`;
@@ -429,6 +436,15 @@ function RoutineTimeTableView({
           slotMinTime="00:00:00"
           slotMaxTime="24:00:00"
           allDaySlot={false}
+          selectable={true}
+          selectMirror={true}
+          select={(info) => {
+            const startTime = `${String(info.start.getHours()).padStart(2,'0')}:${String(info.start.getMinutes()).padStart(2,'0')}`;
+            const endTimeVal = `${String(info.end.getHours()).padStart(2,'0')}:${String(info.end.getMinutes()).padStart(2,'0')}`;
+            const dayOfWeek = info.start.getDay();
+            setNewRoutineDefaults({ time: startTime, endTime: endTimeVal, days: [dayOfWeek] });
+            setShowAddRoutine(true);
+          }}
           editable={true}
           events={events}
           eventClick={(info) => {
@@ -495,9 +511,13 @@ function RoutineTimeTableView({
       {/* 루틴 추가 모달 */}
       {showAddRoutine && (
         <RoutineTaskModal
-          onClose={() => setShowAddRoutine(false)}
+          onClose={() => { setShowAddRoutine(false); setNewRoutineDefaults(null); }}
+          defaultTime={newRoutineDefaults?.time}
+          defaultEndTime={newRoutineDefaults?.endTime}
+          defaultDays={newRoutineDefaults?.days}
           onCreated={() => {
             setShowAddRoutine(false);
+            setNewRoutineDefaults(null);
             loadEvents();
           }}
         />
@@ -2055,7 +2075,7 @@ export function CalendarPage() {
       if (!slotContainer) { setNowLineTop(null); return; }
 
       const now = new Date();
-      const startHour = 6;  // slotMinTime
+      const startHour = 5;  // slotMinTime
       const endHour = 24;   // slotMaxTime
       const totalMinutes = (endHour - startHour) * 60;
       const currentMinutes = (now.getHours() - startHour) * 60 + now.getMinutes();
@@ -2436,7 +2456,7 @@ export function CalendarPage() {
               } as any);
             }}
             allDayText=""
-            slotMinTime="06:00:00"
+            slotMinTime="05:00:00"
             slotMaxTime="24:00:00"
             slotDuration="00:15:00"
             slotLabelInterval="01:00:00"

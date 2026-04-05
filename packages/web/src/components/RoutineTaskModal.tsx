@@ -8,17 +8,20 @@ interface RoutineTaskModalProps {
   areaId?: string | null;
   onClose: () => void;
   onCreated?: () => void;
+  defaultTime?: string;
+  defaultEndTime?: string;
+  defaultDays?: number[];
 }
 
 const DAY_LABELS_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const DAY_LABELS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function RoutineTaskModal({ projectId, areaId, onClose, onCreated }: RoutineTaskModalProps) {
+export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaultTime, defaultEndTime, defaultDays }: RoutineTaskModalProps) {
   const { language } = useLanguage();
   const [title, setTitle] = useState("");
-  const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [time, setTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [selectedDays, setSelectedDays] = useState<number[]>(defaultDays ?? []);
+  const [time, setTime] = useState(defaultTime ?? "");
+  const [endTime, setEndTime] = useState(defaultEndTime ?? "");
   const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
