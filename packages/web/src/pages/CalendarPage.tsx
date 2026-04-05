@@ -2467,7 +2467,7 @@ export function CalendarPage() {
               hour12: true,
             }}
             stickyHeaderDates={true}
-            height="auto"
+            height="calc(var(--app-height, 100dvh) - 140px)"
             eventTimeFormat={{
               hour: "numeric",
               minute: "2-digit",
