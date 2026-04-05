@@ -19,20 +19,17 @@ function Layout() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
 
-  // iOS PWA: 실제 뷰포트 높이를 CSS 변수로 설정
+  // iOS PWA: 실제 뷰포트 높이를 CSS 변수로 설정 (초기 1회 + 화면 회전 시만)
   useEffect(() => {
     const setVh = () => {
-      // visualViewport가 iOS PWA에서 더 정확함
-      const h = window.visualViewport?.height ?? window.innerHeight;
+      const h = window.innerHeight;
       document.documentElement.style.setProperty('--app-height', `${h}px`);
     };
     setVh();
-    window.visualViewport?.addEventListener('resize', setVh);
-    window.addEventListener('resize', setVh);
-    window.addEventListener('orientationchange', () => setTimeout(setVh, 300));
+    const onOrientationChange = () => setTimeout(setVh, 300);
+    window.addEventListener('orientationchange', onOrientationChange);
     return () => {
-      window.visualViewport?.removeEventListener('resize', setVh);
-      window.removeEventListener('resize', setVh);
+      window.removeEventListener('orientationchange', onOrientationChange);
     };
   }, []);
 
