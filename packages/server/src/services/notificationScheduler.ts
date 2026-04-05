@@ -223,7 +223,9 @@ async function checkUpcomingEvents(): Promise<void> {
 async function sendDailyBriefing(): Promise<void> {
   const todayStr = getKSTDateStr();
   const jobKey = `briefing-${todayStr}`;
-  if (!shouldRun(jobKey)) return;
+  // 이미 성공적으로 실행된 경우만 스킵 (실패시 재시도 가능)
+  if (executedJobs.get(jobKey) === 1) return;
+  executedJobs.set(jobKey, Math.floor(Date.now() / 60000));
 
   // 오늘 캘린더 이벤트 (start_at 기준)
   const todayEvents = sqlite
@@ -265,12 +267,20 @@ ${taskLines.join("\n") || "없음"}
 
 짧고 활기차게 오늘 하루를 준비할 수 있도록 브리핑해주세요.`;
 
-  await generateAndSendMessage(
+  const result = await generateAndSendMessage(
     prompt,
     "LifeKit 아침 브리핑 봇. 오늘의 일정과 할 일을 간결하게 요약하고, 하루를 시작하는 에너지를 불어넣어 주세요. 이모지 활용."
   );
 
-  console.log(`[scheduler] Morning briefing sent for ${todayStr}`);
+  if (result) {
+    // 성공 시에만 1로 마킹 (실패 시 재시도 가능)
+    executedJobs.set(jobKey, 1);
+    console.log(`[scheduler] Morning briefing sent for ${todayStr}`);
+  } else {
+    console.log(`[scheduler] Morning briefing failed for ${todayStr}, will retry next minute`);
+    // 실패 시 스킵 키 제거 → 다음 분에 재시도
+    executedJobs.delete(jobKey);
+  }
 }
 
 // ══════════════════════════════════════════
