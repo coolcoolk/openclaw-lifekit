@@ -2459,7 +2459,7 @@ export function CalendarPage() {
               hour: "numeric",
               hour12: true,
             }}
-            height="calc(100dvh - 130px - 56px - env(safe-area-inset-bottom, 0px) - env(safe-area-inset-top, 0px))"
+            height="calc(100dvh - 200px - env(safe-area-inset-bottom, 0px))"
             eventTimeFormat={{
               hour: "numeric",
               minute: "2-digit",
