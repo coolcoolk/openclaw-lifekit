@@ -55,7 +55,7 @@ function Layout() {
       {!isMobile && (
         <Sidebar activePage={activePage} onNavigate={(page) => navigate(`/${page}`)} />
       )}
-      <main className={`flex-1 overflow-y-auto`} style={isMobile ? { paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))' } : {}}>
+      <main className={`flex-1 overflow-y-auto`} style={isMobile ? { paddingBottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' } : {}}>
         <Routes>
           <Route path="/" element={<Navigate to="/calendar" replace />} />
           <Route path="/calendar" element={<CalendarPage />} />
