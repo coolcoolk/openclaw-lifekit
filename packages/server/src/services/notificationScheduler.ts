@@ -504,7 +504,7 @@ async function generateWeeklyRoutineTasks(): Promise<void> {
   for (const routine of routineTasks) {
     if (!routine.routineRule) continue;
 
-    let rule: { freq?: string; days?: number[]; time?: string };
+    let rule: { freq?: string; days?: number[]; time?: string; endTime?: string };
     try {
       rule = JSON.parse(routine.routineRule);
     } catch {
@@ -522,6 +522,9 @@ async function generateWeeklyRoutineTasks(): Promise<void> {
       const startAt = rule.time
         ? `${dateStr}T${rule.time}:00`
         : `${dateStr}T00:00:00`;
+      const endAt = rule.endTime
+        ? `${dateStr}T${rule.endTime}:00`
+        : null;
 
       const existingQuery = routine.projectId
         ? `SELECT COUNT(*) as cnt FROM tasks WHERE source = 'routine' AND title = ? AND start_at = ? AND project_id = ?`
@@ -552,6 +555,7 @@ async function generateWeeklyRoutineTasks(): Promise<void> {
           isRoutine: false, // 생성된 인스턴스는 루틴 아님
           routineRule: null,
           startAt,
+          endAt,
           allDay: !rule.time,
           source: "routine",
           linkedDomainId: routine.linkedDomainId,

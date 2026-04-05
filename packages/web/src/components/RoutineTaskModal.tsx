@@ -18,6 +18,7 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated }: Rout
   const [title, setTitle] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [time, setTime] = useState("");
+  const [endTime, setEndTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +49,7 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated }: Rout
         freq: "weekly",
         days: selectedDays.sort((a, b) => a - b),
         ...(time ? { time } : {}),
+        ...(endTime ? { endTime } : {}),
       });
 
       await api.createTask({
@@ -154,12 +156,21 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated }: Rout
             <label className="text-xs text-muted-foreground font-medium mb-1 block">
               {language === "ko" ? "시간 (선택사항 — 비우면 종일)" : "Time (optional — leave empty for all-day)"}
             </label>
-            <input
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+              <span className="text-xs text-muted-foreground shrink-0">~</span>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
           </div>
         </div>
 
