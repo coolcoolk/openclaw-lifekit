@@ -2113,10 +2113,12 @@ export function CalendarPage() {
       }
     };
 
-    updateNowLine();
+    // 첫 실행은 약간 딜레이 후 (FullCalendar DOM 준비 대기)
+    const initTimer = setTimeout(updateNowLine, 500);
     const interval = setInterval(updateNowLine, 60000);
 
     return () => {
+      clearTimeout(initTimer);
       clearInterval(interval);
     };
   }, [currentView]);
