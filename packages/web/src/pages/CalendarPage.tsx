@@ -424,7 +424,7 @@ function RoutineTimeTableView({
       </div>
 
       {/* 캘린더 */}
-      <div className="px-1 py-1" style={{ height: 'calc(var(--app-height, 100vh) - 230px)' }}>
+      <div className="px-1 py-1" style={{ height: 'calc(100dvh - 230px)' }}>
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin, interactionPlugin]}
@@ -501,7 +501,7 @@ function RoutineTimeTableView({
           }}
           stickyHeaderDates={true}
           locale={koLocale}
-          height="calc(var(--app-height, 100vh) - 230px)"
+          height="calc(100dvh - 230px)"
           slotDuration="00:30:00"
           slotLabelInterval="01:00:00"
           slotLabelFormat={{
@@ -2457,7 +2457,7 @@ export function CalendarPage() {
               hour: "numeric",
               hour12: true,
             }}
-            height="calc(var(--app-height, 100dvh) - 130px)"
+            height="calc(100dvh - 130px)"
             eventTimeFormat={{
               hour: "numeric",
               minute: "2-digit",
