@@ -268,10 +268,10 @@ taskRoutes.post("/", async (c) => {
     estimatedMinutes: body.estimated_minutes || null,
     tags: body.tags ? JSON.stringify(body.tags) : null,
     sortOrder: body.sort_order || 0,
-    // Calendar fields
-    startAt: body.start_at || null,
-    endAt: body.end_at || null,
-    allDay: body.all_day || false,
+    // Calendar fields (camelCase 또는 snake_case 둘 다 허용)
+    startAt: body.startAt || body.start_at || null,
+    endAt: body.endAt || body.end_at || null,
+    allDay: body.allDay ?? body.all_day ?? false,
     location: body.location || null,
     source: body.source || "manual",
     externalId: body.external_id || null,
@@ -320,10 +320,10 @@ taskRoutes.patch("/:id", async (c) => {
   if (body.tags !== undefined) updates.tags = JSON.stringify(body.tags);
   if (body.sort_order !== undefined) updates.sortOrder = body.sort_order;
   if (body.estimated_minutes !== undefined) updates.estimatedMinutes = body.estimated_minutes;
-  // Calendar fields
-  if (body.start_at !== undefined) updates.startAt = body.start_at;
-  if (body.end_at !== undefined) updates.endAt = body.end_at;
-  if (body.all_day !== undefined) updates.allDay = body.all_day;
+  // Calendar fields (camelCase 또는 snake_case 둘 다 허용)
+  if (body.startAt !== undefined || body.start_at !== undefined) updates.startAt = body.startAt ?? body.start_at;
+  if (body.endAt !== undefined || body.end_at !== undefined) updates.endAt = body.endAt ?? body.end_at;
+  if (body.allDay !== undefined || body.all_day !== undefined) updates.allDay = body.allDay ?? body.all_day;
   if (body.location !== undefined) updates.location = body.location;
   if (body.color !== undefined) updates.color = body.color;
   if (body.linked_domain_id !== undefined) updates.linkedDomainId = body.linked_domain_id;
