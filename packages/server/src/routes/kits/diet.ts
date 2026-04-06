@@ -78,6 +78,29 @@ dietRoutes.delete("/logs/:id", (c) => {
   return c.json({ ok: true });
 });
 
+// GET /api/kits/diet/goals
+dietRoutes.get("/goals", (c) => {
+  const row = sqlite.query("SELECT value FROM settings WHERE key = 'diet_goals'").get() as any;
+  if (!row) return c.json({ calories: null, protein: null, carbs: null, fat: null });
+  return c.json(JSON.parse(row.value));
+});
+
+// PATCH /api/kits/diet/goals
+dietRoutes.patch("/goals", async (c) => {
+  const body = await c.req.json();
+  const goals = {
+    calories: body.calories ?? null,
+    protein: body.protein ?? null,
+    carbs: body.carbs ?? null,
+    fat: body.fat ?? null,
+  };
+  sqlite.run(
+    "INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('diet_goals', ?, datetime('now'))",
+    [JSON.stringify(goals)]
+  );
+  return c.json(goals);
+});
+
 // GET /api/kits/diet/summary — 일별 영양소 합계
 dietRoutes.get("/summary", (c) => {
   const date = c.req.query("date");

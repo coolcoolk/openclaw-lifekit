@@ -327,6 +327,10 @@ export const api = {
     fetchJSON<any[]>(date ? `/kits/diet/logs?date=${date}` : "/kits/diet/logs"),
   getDietSummary: (date: string) =>
     fetchJSON<any>(`/kits/diet/summary?date=${date}`),
+  getDietGoals: () =>
+    fetchJSON<{ calories: number | null; protein: number | null; carbs: number | null; fat: number | null }>("/kits/diet/goals"),
+  updateDietGoals: (goals: { calories?: number | null; protein?: number | null; carbs?: number | null; fat?: number | null }) =>
+    fetchJSON<any>("/kits/diet/goals", { method: "PATCH", body: JSON.stringify(goals) }),
 
   // Exercise
   getExerciseLogs: (date?: string) =>

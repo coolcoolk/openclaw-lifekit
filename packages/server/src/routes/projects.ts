@@ -108,6 +108,8 @@ projectRoutes.patch("/:id", async (c) => {
 // DELETE /api/projects/:id
 projectRoutes.delete("/:id", (c) => {
   const { id } = c.req.param();
+  // 연결된 태스크 먼저 삭제
+  sqlite.run(`DELETE FROM tasks WHERE project_id = ?`, [id]);
   db.delete(projects).where(eq(projects.id, id)).run();
   return c.json({ ok: true });
 });

@@ -16,6 +16,15 @@ const MEAL_OPTIONS = [
   { value: "snack", label: "간식" },
 ];
 
+interface DietGoals {
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}
+
+const EMPTY_GOALS: DietGoals = { calories: null, protein: null, carbs: null, fat: null };
+
 export function DietDashboard() {
   const [todayLogs, setTodayLogs] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>(null);
@@ -23,6 +32,11 @@ export function DietDashboard() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  const [goals, setGoals] = useState<DietGoals>(EMPTY_GOALS);
+  const [showGoalEdit, setShowGoalEdit] = useState(false);
+  const [goalForm, setGoalForm] = useState<{ calories: string; protein: string; carbs: string; fat: string }>({ calories: "", protein: "", carbs: "", fat: "" });
+  const [savingGoals, setSavingGoals] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({ date: today, meal_type: "lunch", food_name: "", calories: "" });
@@ -43,7 +57,18 @@ export function DietDashboard() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+    api.getDietGoals().then((g) => {
+      setGoals(g);
+      setGoalForm({
+        calories: g.calories?.toString() ?? "",
+        protein: g.protein?.toString() ?? "",
+        carbs: g.carbs?.toString() ?? "",
+        fat: g.fat?.toString() ?? "",
+      });
+    }).catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +86,22 @@ export function DietDashboard() {
       loadData();
     } catch {}
     setSubmitting(false);
+  };
+
+  const handleGoalSave = async () => {
+    setSavingGoals(true);
+    try {
+      const newGoals: DietGoals = {
+        calories: goalForm.calories ? Number(goalForm.calories) : null,
+        protein: goalForm.protein ? Number(goalForm.protein) : null,
+        carbs: goalForm.carbs ? Number(goalForm.carbs) : null,
+        fat: goalForm.fat ? Number(goalForm.fat) : null,
+      };
+      const saved = await api.updateDietGoals(newGoals);
+      setGoals(saved);
+      setShowGoalEdit(false);
+    } catch {}
+    setSavingGoals(false);
   };
 
   if (loading) return <div className="text-xs text-muted-foreground py-4 text-center">로딩 중...</div>;
@@ -83,8 +124,8 @@ export function DietDashboard() {
   );
 
   const totalCal = summary?.total_calories ?? 0;
-  const goalCal = 2000;
-  const pct = Math.min((totalCal / goalCal) * 100, 100);
+  const goalCal = goals.calories;
+  const pct = goalCal ? Math.min((totalCal / goalCal) * 100, 100) : 0;
   const maxWeeklyCal = Math.max(...weeklyData.map((d) => d.total_calories ?? 0), 1);
 
   if (todayLogs.length === 0 && weeklyData.every((d) => !d.total_calories)) {
@@ -103,6 +144,12 @@ export function DietDashboard() {
     byMeal[key].push(log);
   });
 
+  const macroItems = [
+    { label: "단백질", current: summary?.total_protein ?? 0, goal: goals.protein, color: "bg-blue-500" },
+    { label: "탄수화물", current: summary?.total_carbs ?? 0, goal: goals.carbs, color: "bg-yellow-500" },
+    { label: "지방", current: summary?.total_fat ?? 0, goal: goals.fat, color: "bg-orange-500" },
+  ].filter((m) => m.goal);
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -110,19 +157,129 @@ export function DietDashboard() {
       </div>
       {addForm}
 
+      {/* 칼로리 + 목표 */}
       <div className="border border-border rounded-lg p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-medium text-muted-foreground">오늘 칼로리</span>
-          <span className="text-sm font-bold">{totalCal.toLocaleString()} / {goalCal.toLocaleString()} kcal</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-medium text-muted-foreground">오늘 칼로리</span>
+            <button
+              onClick={() => setShowGoalEdit(!showGoalEdit)}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="목표 설정"
+            >⚙️</button>
+          </div>
+          {goalCal ? (
+            <span className={`text-sm font-bold ${totalCal > goalCal ? "text-red-500" : ""}`}>
+              {totalCal.toLocaleString()} / {goalCal.toLocaleString()} kcal
+            </span>
+          ) : (
+            <span className="text-sm font-bold">{totalCal.toLocaleString()} kcal</span>
+          )}
         </div>
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-500 ${pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-green-500"}`} style={{ width: `${pct}%` }} />
-        </div>
-        {summary && (
+        {goalCal ? (
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${totalCal > goalCal ? "bg-red-500" : pct >= 80 ? "bg-yellow-500" : "bg-green-500"}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        ) : null}
+
+        {/* 탄단지 프로그레스바 */}
+        {macroItems.length > 0 && (
+          <div className="space-y-2 mt-3">
+            {macroItems.map((m) => {
+              const current = m.current ?? 0;
+              const exceeded = current > m.goal!;
+              const macPct = Math.min((current / m.goal!) * 100, 100);
+              return (
+                <div key={m.label}>
+                  <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                    <span>{m.label}</span>
+                    <span className={exceeded ? "text-red-500" : ""}>
+                      {current.toFixed(1)} / {m.goal}g
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-500 ${exceeded ? "bg-red-500" : m.color}`}
+                      style={{ width: `${macPct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 탄단지 수치 (목표 없을 때) */}
+        {macroItems.length === 0 && summary && (
           <div className="flex gap-3 mt-2 text-[10px] text-muted-foreground">
             <span>단백질 {summary.total_protein ?? 0}g</span>
             <span>탄수화물 {summary.total_carbs ?? 0}g</span>
             <span>지방 {summary.total_fat ?? 0}g</span>
+          </div>
+        )}
+
+        {/* 목표 설정 폼 */}
+        {showGoalEdit && (
+          <div className="mt-3 pt-3 border-t border-border space-y-2">
+            <div className="text-xs font-medium text-muted-foreground mb-1">일일 목표 설정</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] text-muted-foreground">칼로리 (kcal)</label>
+                <input
+                  type="number"
+                  placeholder="예: 2000"
+                  value={goalForm.calories}
+                  onChange={(e) => setGoalForm({ ...goalForm, calories: e.target.value })}
+                  className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">단백질 (g)</label>
+                <input
+                  type="number"
+                  placeholder="예: 150"
+                  value={goalForm.protein}
+                  onChange={(e) => setGoalForm({ ...goalForm, protein: e.target.value })}
+                  className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">탄수화물 (g)</label>
+                <input
+                  type="number"
+                  placeholder="예: 250"
+                  value={goalForm.carbs}
+                  onChange={(e) => setGoalForm({ ...goalForm, carbs: e.target.value })}
+                  className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-muted-foreground">지방 (g)</label>
+                <input
+                  type="number"
+                  placeholder="예: 65"
+                  value={goalForm.fat}
+                  onChange={(e) => setGoalForm({ ...goalForm, fat: e.target.value })}
+                  className="w-full text-xs border border-border rounded px-2 py-1.5 bg-background"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setShowGoalEdit(false)}
+                className="text-xs px-2.5 py-1 rounded border border-border text-muted-foreground hover:bg-muted"
+              >취소</button>
+              <button
+                type="button"
+                onClick={handleGoalSave}
+                disabled={savingGoals}
+                className="text-xs px-2.5 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >{savingGoals ? "저장 중..." : "저장"}</button>
+            </div>
           </div>
         )}
       </div>

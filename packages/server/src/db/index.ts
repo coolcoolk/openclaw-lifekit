@@ -278,5 +278,14 @@ addCol("dashboard", "language", "TEXT DEFAULT 'ko'");
 try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_start_at ON tasks(start_at)"); } catch {}
 try { sqlite.exec("CREATE INDEX IF NOT EXISTS idx_tasks_external_id ON tasks(external_id)"); } catch {}
 
+// settings table for kit-level config (diet goals, etc.)
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+`);
+
 export const db = drizzle(sqlite, { schema });
 export { sqlite };
