@@ -6,7 +6,7 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
 import type { EventClickArg, DateSelectArg, DatesSetArg } from "@fullcalendar/core";
 import koLocale from "@fullcalendar/core/locales/ko";
-import { api, type Task, type Domain, type Relation } from "@/lib/api";
+import { api, type Task, type Domain, type Relation, type Area } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -146,11 +146,11 @@ function RoutineEditSheet({
   const [endTime, setEndTime] = useState<string>(rule.endTime || "");
   const [selectedDays, setSelectedDays] = useState<number[]>(rule.days || []);
   const [saving, setSaving] = useState(false);
-  const [linkedDomainId, setLinkedDomainId] = useState<string>(task.linkedDomainId || "");
-  const [domains, setDomains] = useState<{ id: string; name: string; color?: string }[]>([]);
+  const [areaId, setAreaId] = useState<string>(task.areaId || "");
+  const [areas, setAreas] = useState<{ id: string; name: string; domainId?: string }[]>([]);
 
   useEffect(() => {
-    fetch('/api/domains').then(r => r.json()).then(setDomains).catch(() => {});
+    api.getAreas().then(setAreas).catch(() => {});
   }, []);
 
   const dayLabels = ["일","월","화","수","목","금","토"];
@@ -176,7 +176,7 @@ function RoutineEditSheet({
       const result = await api.updateTask(task.id, {
         title: title.trim(),
         routine_rule: newRule,
-        linked_domain_id: linkedDomainId || null,
+        area_id: areaId || null,
       } as any);
       console.log('[RoutineEdit] update result:', result);
       onSaved();
@@ -259,13 +259,13 @@ function RoutineEditSheet({
           <div>
             <label className="text-xs text-muted-foreground font-medium mb-1 block">영역 (선택사항)</label>
             <select
-              value={linkedDomainId}
-              onChange={e => setLinkedDomainId(e.target.value)}
+              value={areaId}
+              onChange={e => setAreaId(e.target.value)}
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">선택 안함</option>
-              {domains.map(d => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+              {areas.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
           </div>
@@ -1560,6 +1560,7 @@ function CreateEventContent({
     description: string;
     location: string;
     linked_domain_id: string;
+    area_id?: string;
     relation_ids?: string[];
   }) => void;
 }) {
@@ -1580,6 +1581,8 @@ function CreateEventContent({
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [linkedDomainId, setLinkedDomainId] = useState("");
+  const [areaId, setAreaId] = useState("");
+  const [areas, setAreas] = useState<Area[]>([]);
   const [selectedRelationIds, setSelectedRelationIds] = useState<string[]>([]);
   const [allRelations, setAllRelations] = useState<Relation[]>([]);
   const { t } = useLanguage();
@@ -1588,6 +1591,7 @@ function CreateEventContent({
   useEffect(() => {
     
     api.getRelations().then(setAllRelations).catch(() => {});
+    api.getAreas().then(setAreas).catch(() => {});
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1607,6 +1611,7 @@ function CreateEventContent({
       description: description.trim(),
       location: location.trim(),
       linked_domain_id: linkedDomainId,
+      area_id: areaId || undefined,
       relation_ids: selectedRelationIds.length > 0 ? selectedRelationIds : undefined,
     });
   };
@@ -1738,6 +1743,25 @@ function CreateEventContent({
           </select>
         </div>
 
+        {/* 영역 선택 */}
+        {areas.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm shrink-0">📂</span>
+            <select
+              value={areaId}
+              onChange={(e) => setAreaId(e.target.value)}
+              className="text-sm bg-transparent border-none outline-none cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
+            >
+              <option value="">영역 선택 안함</option>
+              {areas.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.icon} {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         {/* 관계 인물 선택 */}
         {allRelations.length > 0 && (
           <div className="space-y-1.5">
@@ -1816,6 +1840,7 @@ function CreateEventPanel({
     description: string;
     location: string;
     linked_domain_id: string;
+    area_id?: string;
     relation_ids?: string[];
   }) => void;
 }) {
@@ -1983,6 +2008,7 @@ export function CalendarPage() {
       description: string;
       location: string;
       linked_domain_id: string;
+      area_id?: string;
       relation_ids?: string[];
     }) => {
       await api.createTask(data as any);
