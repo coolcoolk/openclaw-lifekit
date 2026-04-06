@@ -2092,56 +2092,6 @@ export function CalendarPage() {
     }
   }, []);
 
-  // ── 현재 시간 빨간줄 위치 계산 ──
-  useEffect(() => {
-    const updateNowLine = () => {
-      const container = calendarContainerRef.current;
-      if (!container) return;
-
-      const slotContainer = container.querySelector(".fc-timegrid-slots");
-      if (!slotContainer) { setNowLineTop(null); return; }
-
-      const now = new Date();
-      const startHour = 5;  // slotMinTime
-      const endHour = 24;   // slotMaxTime
-      const totalMinutes = (endHour - startHour) * 60;
-      const currentMinutes = (now.getHours() - startHour) * 60 + now.getMinutes();
-
-      if (currentMinutes < 0 || currentMinutes > totalMinutes) {
-        setNowLineTop(null);
-        return;
-      }
-
-      const percent = currentMinutes / totalMinutes;
-      const gridRect = slotContainer.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const top = gridRect.top - containerRect.top + gridRect.height * percent;
-
-      setNowLineTop(top);
-
-      // 오늘 컬럼 x 범위 계산
-      const todayStr = now.toISOString().slice(0, 10);
-      const todayCol = container.querySelector(`[data-date="${todayStr}"]`) as HTMLElement | null;
-      if (todayCol) {
-        const colRect = todayCol.getBoundingClientRect();
-        const left = colRect.left - containerRect.left;
-        const right = containerRect.right - colRect.right;
-        setNowLineX({ left, right });
-      } else {
-        setNowLineX(null);
-      }
-    };
-
-    // 첫 실행은 약간 딜레이 후 (FullCalendar DOM 준비 대기)
-    const initTimer = setTimeout(updateNowLine, 500);
-    const interval = setInterval(updateNowLine, 60000);
-
-    return () => {
-      clearTimeout(initTimer);
-      clearInterval(interval);
-    };
-  }, [currentView]);
-
   // External event drop: 사이드바 태스크 → 캘린더에 시간 배정 (PATCH start_at/end_at)
   const handleExternalDrop = useCallback(
     async (info: any) => {
