@@ -11,19 +11,26 @@ interface RoutineTaskModalProps {
   defaultTime?: string;
   defaultEndTime?: string;
   defaultDays?: number[];
+  defaultDomainId?: string;
 }
 
 const DAY_LABELS_KO = ["일", "월", "화", "수", "목", "금", "토"];
 const DAY_LABELS_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaultTime, defaultEndTime, defaultDays }: RoutineTaskModalProps) {
+export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaultTime, defaultEndTime, defaultDays, defaultDomainId }: RoutineTaskModalProps) {
   const { language } = useLanguage();
   const [title, setTitle] = useState("");
   const [selectedDays, setSelectedDays] = useState<number[]>(defaultDays ?? []);
   const [time, setTime] = useState(defaultTime ?? "");
   const [endTime, setEndTime] = useState(defaultEndTime ?? "");
   const [submitting, setSubmitting] = useState(false);
+  const [linkedDomainId, setLinkedDomainId] = useState(defaultDomainId ?? "");
+  const [domains, setDomains] = useState<{ id: string; name: string; color?: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch('/api/domains').then(r => r.json()).then(setDomains).catch(() => {});
+  }, []);
 
   const dayLabels = language === "ko" ? DAY_LABELS_KO : DAY_LABELS_EN;
   // Display order: 월화수목금토일 (1,2,3,4,5,6,0)
@@ -63,6 +70,7 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaul
         routine_rule: routineRule,
         status: "todo",
         source: "manual",
+        linked_domain_id: linkedDomainId || undefined,
       } as any);
 
       onCreated?.();
@@ -174,6 +182,23 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaul
                 className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
+          </div>
+
+          {/* 영역 (선택사항) */}
+          <div>
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">
+              {language === "ko" ? "영역 (선택사항)" : "Domain (optional)"}
+            </label>
+            <select
+              value={linkedDomainId}
+              onChange={e => setLinkedDomainId(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">{language === "ko" ? "선택 안함" : "None"}</option>
+              {domains.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

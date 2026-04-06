@@ -146,6 +146,12 @@ function RoutineEditSheet({
   const [endTime, setEndTime] = useState<string>(rule.endTime || "");
   const [selectedDays, setSelectedDays] = useState<number[]>(rule.days || []);
   const [saving, setSaving] = useState(false);
+  const [linkedDomainId, setLinkedDomainId] = useState<string>(task.linkedDomainId || "");
+  const [domains, setDomains] = useState<{ id: string; name: string; color?: string }[]>([]);
+
+  useEffect(() => {
+    fetch('/api/domains').then(r => r.json()).then(setDomains).catch(() => {});
+  }, []);
 
   const dayLabels = ["일","월","화","수","목","금","토"];
   const dayOrder = [1,2,3,4,5,6,0];
@@ -170,6 +176,7 @@ function RoutineEditSheet({
       const result = await api.updateTask(task.id, {
         title: title.trim(),
         routine_rule: newRule,
+        linked_domain_id: linkedDomainId || null,
       } as any);
       console.log('[RoutineEdit] update result:', result);
       onSaved();
@@ -247,6 +254,20 @@ function RoutineEditSheet({
               <span className="text-xs text-muted-foreground">~</span>
               <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="flex-1 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20" />
             </div>
+          </div>
+          {/* 영역 */}
+          <div>
+            <label className="text-xs text-muted-foreground font-medium mb-1 block">영역 (선택사항)</label>
+            <select
+              value={linkedDomainId}
+              onChange={e => setLinkedDomainId(e.target.value)}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="">선택 안함</option>
+              {domains.map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
           </div>
         </div>
         {/* 액션 버튼 */}
@@ -1841,9 +1862,7 @@ export function CalendarPage() {
   const calendarRef = useRef<FullCalendar>(null);
   const calendarContainerRef = useRef<HTMLDivElement>(null);
   const dateRangeRef = useRef<{ start: string; end: string } | null>(null);
-  const nowLineRef = useRef<HTMLDivElement>(null);
-  const [nowLineTop, setNowLineTop] = useState<number | null>(null);
-  const [nowLineX, setNowLineX] = useState<{ left: number; right: number } | null>(null);
+
   const isMobile = useIsMobile();
   const { t, language } = useLanguage();
   const [currentView, setCurrentView] = useState<string>("timeGridWeek");
@@ -2318,29 +2337,7 @@ export function CalendarPage() {
         ) : (
         <div className="flex-1 min-w-0 py-2 px-0.5 md:py-6 md:px-4">
           <div ref={calendarContainerRef} className="border border-border rounded-lg p-0.5 md:p-3 bg-background relative">
-            {/* 현재 시간 빨간줄 오버레이 */}
-            {nowLineTop !== null && (
-              <div style={{ position: "absolute", top: nowLineTop, left: 0, right: 0, zIndex: 10, pointerEvents: "none", height: 2 }}>
-                {/* 왼쪽 얇은 선 (오늘 이전 영역) */}
-                {nowLineX && (
-                  <div style={{ position: "absolute", left: 0, width: nowLineX.left, height: 1, top: 0.5, backgroundColor: "#ef4444", opacity: 0.5 }} />
-                )}
-                {/* 오늘 컬럼 굵은 선 */}
-                <div style={{
-                  position: "absolute",
-                  left: nowLineX ? nowLineX.left : 0,
-                  right: nowLineX ? nowLineX.right : 0,
-                  height: 2,
-                  backgroundColor: "#ef4444",
-                }}>
-                  <div style={{ position: "absolute", left: -4, top: -4, width: 10, height: 10, borderRadius: "50%", backgroundColor: "#ef4444" }} />
-                </div>
-                {/* 오른쪽 얇은 선 (오늘 이후 영역) */}
-                {nowLineX && (
-                  <div style={{ position: "absolute", right: 0, width: nowLineX.right, height: 1, top: 0.5, backgroundColor: "#ef4444", opacity: 0.5 }} />
-                )}
-              </div>
-            )}
+
             <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -2371,7 +2368,7 @@ export function CalendarPage() {
             selectMirror
             editable
             eventResizableFromStart
-            nowIndicator={false}
+            nowIndicator={true}
             dayMaxEvents={isMobile ? 2 : 3}
             eventContent={(arg) => {
               const isDone = arg.event.extendedProps.status === "done";

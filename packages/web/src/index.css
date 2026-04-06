@@ -32,6 +32,17 @@ body {
   height: 100%;
 }
 
+/* FullCalendar 현재시간 인디케이터 스타일 */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+}
+
 /* FullCalendar 테마 오버라이드 */
 .fc {
   --fc-border-color: var(--color-border);
