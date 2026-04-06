@@ -147,10 +147,12 @@ function RoutineEditSheet({
   const [selectedDays, setSelectedDays] = useState<number[]>(rule.days || []);
   const [saving, setSaving] = useState(false);
   const [areaId, setAreaId] = useState<string>(task.areaId || "");
-  const [areas, setAreas] = useState<{ id: string; name: string; domainId?: string }[]>([]);
+  const [areas, setAreas] = useState<{ id: string; name: string; icon?: string; domainId?: string }[]>([]);
+  const [domains, setDomains] = useState<{ id: string; name: string; icon?: string }[]>([]);
 
   useEffect(() => {
     api.getAreas().then(setAreas).catch(() => {});
+    api.getDomains().then(setDomains).catch(() => {});
   }, []);
 
   const dayLabels = ["일","월","화","수","목","금","토"];
@@ -264,9 +266,19 @@ function RoutineEditSheet({
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">선택 안함</option>
-              {areas.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
+              {domains.map((d) => {
+                const domainAreas = areas.filter((a) => a.domainId === d.id);
+                if (domainAreas.length === 0) return null;
+                return (
+                  <optgroup key={d.id} label={`${d.icon || ""} ${d.name}`}>
+                    {domainAreas.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.icon} {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
         </div>
@@ -1753,11 +1765,19 @@ function CreateEventContent({
               className="text-sm bg-transparent border-none outline-none cursor-pointer hover:bg-muted/50 rounded px-1 py-0.5"
             >
               <option value="">영역 선택 안함</option>
-              {areas.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.icon} {a.name}
-                </option>
-              ))}
+              {domains.map((d) => {
+                const domainAreas = areas.filter((a) => a.domainId === d.id);
+                if (domainAreas.length === 0) return null;
+                return (
+                  <optgroup key={d.id} label={`${d.icon || ""} ${d.name}`}>
+                    {domainAreas.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.icon} {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
         )}

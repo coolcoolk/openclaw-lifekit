@@ -25,11 +25,13 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaul
   const [endTime, setEndTime] = useState(defaultEndTime ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [selectedAreaId, setSelectedAreaId] = useState(defaultAreaId ?? areaId ?? "");
-  const [areas, setAreas] = useState<{ id: string; name: string; domainId?: string }[]>([]);
+  const [areas, setAreas] = useState<{ id: string; name: string; icon?: string; domainId?: string }[]>([]);
+  const [domains, setDomains] = useState<{ id: string; name: string; icon?: string }[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.getAreas().then(setAreas).catch(() => {});
+    api.getDomains().then(setDomains).catch(() => {});
   }, []);
 
   const dayLabels = language === "ko" ? DAY_LABELS_KO : DAY_LABELS_EN;
@@ -194,9 +196,19 @@ export function RoutineTaskModal({ projectId, areaId, onClose, onCreated, defaul
               className="w-full px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="">{language === "ko" ? "선택 안함" : "None"}</option>
-              {areas.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
+              {domains.map((d) => {
+                const domainAreas = areas.filter((a) => a.domainId === d.id);
+                if (domainAreas.length === 0) return null;
+                return (
+                  <optgroup key={d.id} label={`${d.icon || ""} ${d.name}`}>
+                    {domainAreas.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.icon} {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           </div>
         </div>
